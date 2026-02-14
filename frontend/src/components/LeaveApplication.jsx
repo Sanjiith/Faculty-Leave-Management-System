@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Calendar, Clock, AlertCircle, Upload } from 'lucide-react';
+import axios from 'axios';
 
-const LeaveApplication = () => {
+const LeaveApplication = ({ facultyData }) => {
   const [leaveData, setLeaveData] = useState({
     leaveType: '',
     fromDate: '',
@@ -12,6 +13,9 @@ const LeaveApplication = () => {
     alternateFaculty: '',
     document: null,
   });
+
+  const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
 
   const leaveTypes = [
     'Casual Leave',
@@ -30,6 +34,7 @@ const LeaveApplication = () => {
     } else {
       setLeaveData({ ...leaveData, [name]: value });
     }
+    setMessage({ type: '', text: '' });
   };
 
   const calculateDays = () => {
@@ -43,25 +48,78 @@ const LeaveApplication = () => {
     return 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('Leave Application Submitted:', leaveData);
-    alert('Leave application submitted successfully! It will be reviewed by HOD.');
-    setLeaveData({
-      leaveType: '',
-      fromDate: '',
-      toDate: '',
-      fromTime: '',
-      toTime: '',
-      reason: '',
-      alternateFaculty: '',
-      document: null,
-    });
+    setLoading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        'http://localhost:5000/api/faculty/leave/apply',
+        leaveData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+
+      if (response.data.success) {
+        setMessage({ 
+          type: 'success', 
+          text: 'Leave application submitted successfully! It will be reviewed by HOD.' 
+        });
+        setLeaveData({
+          leaveType: '',
+          fromDate: '',
+          toDate: '',
+          fromTime: '',
+          toTime: '',
+          reason: '',
+          alternateFaculty: '',
+          document: null,
+        });
+      }
+    } catch (error) {
+      setMessage({ 
+        type: 'error', 
+        text: error.response?.data?.message || 'Failed to submit leave application' 
+      });
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const days = calculateDays();
+  const isLeaveTypeSelected = leaveData.leaveType;
+  
+  // Check leave balance
+  let balanceCheck = null;
+  if (isLeaveTypeSelected && facultyData?.leaveBalance) {
+    if (leaveData.leaveType === 'Casual Leave') {
+      balanceCheck = facultyData.leaveBalance.casualLeave;
+    } else if (leaveData.leaveType === 'Medical Leave') {
+      balanceCheck = facultyData.leaveBalance.medicalLeave;
+    } else if (leaveData.leaveType === 'Earned Leave') {
+      balanceCheck = facultyData.leaveBalance.earnedLeave;
+    }
+  }
 
   return (
     <div>
       <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-6">Apply for Leave</h2>
+
+      {message.text && (
+        <div className={`mb-4 p-4 rounded-lg ${
+          message.type === 'success' 
+            ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' 
+            : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+        }`}>
+          {message.text}
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -74,7 +132,7 @@ const LeaveApplication = () => {
               name="leaveType"
               value={leaveData.leaveType}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white"
               required
             >
               <option value="">Select Leave Type</option>
@@ -84,20 +142,29 @@ const LeaveApplication = () => {
             </select>
           </div>
 
-          {/* Number of Days (Auto-calculated) */}
+          {/* Number of Days */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Number of Days
             </label>
             <div className="px-4 py-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-300 dark:border-gray-600">
               <span className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                {calculateDays()} {calculateDays() === 1 ? 'Day' : 'Days'}
+                {days} {days === 1 ? 'Day' : 'Days'}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Date and Time Selection */}
+        {/* Leave Balance Warning */}
+        {balanceCheck !== null && days > balanceCheck && (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
+            <p className="text-red-600 dark:text-red-400 font-medium">
+              Insufficient {leaveData.leaveType} balance! Available: {balanceCheck} days
+            </p>
+          </div>
+        )}
+
+        {/* Date Selection */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -109,7 +176,7 @@ const LeaveApplication = () => {
               name="fromDate"
               value={leaveData.fromDate}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white"
               required
             />
           </div>
@@ -124,12 +191,14 @@ const LeaveApplication = () => {
               name="toDate"
               value={leaveData.toDate}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
+              min={leaveData.fromDate}
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white"
               required
             />
           </div>
         </div>
 
+        {/* Time Selection */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -141,7 +210,7 @@ const LeaveApplication = () => {
               name="fromTime"
               value={leaveData.fromTime}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white"
               required
             />
           </div>
@@ -156,7 +225,7 @@ const LeaveApplication = () => {
               name="toTime"
               value={leaveData.toTime}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white"
               required
             />
           </div>
@@ -172,7 +241,7 @@ const LeaveApplication = () => {
             value={leaveData.reason}
             onChange={handleChange}
             rows={4}
-            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
+            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white"
             placeholder="Please provide detailed reason for leave..."
             required
           />
@@ -188,7 +257,7 @@ const LeaveApplication = () => {
             name="alternateFaculty"
             value={leaveData.alternateFaculty}
             onChange={handleChange}
-            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white transition"
+            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white"
             placeholder="Name of faculty member taking your responsibilities"
           />
         </div>
@@ -199,7 +268,7 @@ const LeaveApplication = () => {
             <Upload className="inline-block mr-2" size={16} />
             Supporting Document (Optional)
           </label>
-          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg">
+          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg bg-white dark:bg-gray-700">
             <div className="space-y-1 text-center">
               <div className="flex text-sm text-gray-600 dark:text-gray-400">
                 <label className="relative cursor-pointer rounded-md font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500">
@@ -245,12 +314,13 @@ const LeaveApplication = () => {
         <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
           <button
             type="submit"
-            className="w-full md:w-auto px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-lg shadow-md transition duration-200"
+            disabled={loading || (balanceCheck !== null && days > balanceCheck)}
+            className="w-full md:w-auto px-8 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-lg shadow-md transition duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Submit Leave Application
+            {loading ? 'Submitting...' : 'Submit Leave Application'}
           </button>
           <p className="text-sm text-gray-500 dark:text-gray-400 mt-3">
-            Your leave application will be first reviewed by HOD, then by Principal.
+            Your leave application will be reviewed by HOD.
           </p>
         </div>
       </form>
