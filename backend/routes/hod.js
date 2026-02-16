@@ -67,8 +67,6 @@ router.get('/pending-leaves', protect, hodOnly, async (req, res) => {
 });
 
 // @route   PUT /api/hod/approve-leave/:id
-// @route   PUT /api/hod/approve-leave/:id
-// @desc    Approve or reject leave
 router.put('/approve-leave/:id', protect, hodOnly, async (req, res) => {
   try {
     const { status } = req.body;
@@ -87,12 +85,12 @@ router.put('/approve-leave/:id', protect, hodOnly, async (req, res) => {
     // Update HOD status
     leave.hodStatus = status;
     
-    // IMPORTANT: Update the main status field based on HOD action
+    // Update the main status field based on HOD action
     if (status === 'approved') {
-      leave.status = 'approved'; // Set main status to approved
-      leave.principalStatus = 'pending'; // Keep principal as pending if needed
+      leave.status = 'approved';
+      leave.principalStatus = 'pending';
     } else if (status === 'rejected') {
-      leave.status = 'rejected'; // Set main status to rejected
+      leave.status = 'rejected';
       leave.principalStatus = 'rejected';
     }
 
@@ -102,15 +100,29 @@ router.put('/approve-leave/:id', protect, hodOnly, async (req, res) => {
     if (status === 'approved') {
       const faculty = await User.findById(leave.facultyId);
       
-      let leaveBalanceField = '';
-      if (leave.leaveType === 'Casual Leave') leaveBalanceField = 'casualLeave';
-      else if (leave.leaveType === 'Medical Leave') leaveBalanceField = 'medicalLeave';
-      else if (leave.leaveType === 'Earned Leave') leaveBalanceField = 'earnedLeave';
-      
-      if (leaveBalanceField && faculty) {
-        faculty.leaveBalance[leaveBalanceField] -= leave.days;
-        await faculty.save();
+      // Update leave balances based on type
+      switch (leave.leaveType) {
+        case 'Casual Leave':
+          faculty.leaveBalance.casualLeave -= leave.days;
+          break;
+        case 'Medical Leave':
+          faculty.leaveBalance.medicalLeave -= leave.days;
+          break;
+        case 'Summer Leave':
+          faculty.leaveBalance.summerLeave -= leave.days;
+          break;
+        case 'Winter Leave':
+          faculty.leaveBalance.winterLeave -= leave.days;
+          break;
+        case 'Permission Leave':
+          // Already counted when applying
+          break;
+        case 'Compensation Leave':
+          // Add night skill days tracking if needed
+          break;
       }
+      
+      await faculty.save();
     }
 
     // Return the updated leave with populated faculty data

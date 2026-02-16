@@ -59,11 +59,10 @@ const HODDashboard = ({ onLogout, user }) => {
     }
   };
 
-  // Function to update stats after approval/rejection
   const handleLeaveAction = (action) => {
     setStats(prevStats => ({
       ...prevStats,
-      pendingLeaves: prevStats.pendingLeaves - 1,
+      pendingLeaves: Math.max(0, prevStats.pendingLeaves - 1),
       approvedLeaves: action === 'approved' ? prevStats.approvedLeaves + 1 : prevStats.approvedLeaves,
       rejectedLeaves: action === 'rejected' ? prevStats.rejectedLeaves + 1 : prevStats.rejectedLeaves,
       approvedToday: action === 'approved' ? prevStats.approvedToday + 1 : prevStats.approvedToday
@@ -110,13 +109,13 @@ const HODDashboard = ({ onLogout, user }) => {
             <div className="flex items-center space-x-4">
               <button
                 onClick={toggleDarkMode}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors bg-white dark:bg-gray-800"
               >
                 {isDark ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-gray-600" />}
               </button>
 
               <div className="relative">
-                <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors bg-white dark:bg-gray-800">
                   <Bell size={20} className="text-gray-600 dark:text-gray-400" />
                   {stats.pendingLeaves > 0 && (
                     <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs flex items-center justify-center rounded-full">
@@ -140,7 +139,7 @@ const HODDashboard = ({ onLogout, user }) => {
 
               <button
                 onClick={onLogout}
-                className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors bg-white dark:bg-gray-800"
               >
                 <LogOut size={20} />
               </button>
@@ -217,7 +216,7 @@ const HODDashboard = ({ onLogout, user }) => {
             className={`flex-1 py-3 px-4 rounded-md text-sm font-medium transition ${
               activeTab === 'pending'
                 ? 'bg-blue-600 text-white'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
             }`}
           >
             <Clock className="inline-block mr-2" size={16} />
@@ -228,7 +227,7 @@ const HODDashboard = ({ onLogout, user }) => {
             className={`flex-1 py-3 px-4 rounded-md text-sm font-medium transition ${
               activeTab === 'faculty'
                 ? 'bg-blue-600 text-white'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
             }`}
           >
             <Users className="inline-block mr-2" size={16} />
@@ -239,7 +238,7 @@ const HODDashboard = ({ onLogout, user }) => {
             className={`flex-1 py-3 px-4 rounded-md text-sm font-medium transition ${
               activeTab === 'history'
                 ? 'bg-blue-600 text-white'
-                : 'text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
+                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
             }`}
           >
             <FileText className="inline-block mr-2" size={16} />
@@ -247,7 +246,7 @@ const HODDashboard = ({ onLogout, user }) => {
           </button>
         </div>
 
-        {/* Content */}
+        {/* Content - White background for all tabs */}
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
           {activeTab === 'pending' && (
             <PendingApprovals 

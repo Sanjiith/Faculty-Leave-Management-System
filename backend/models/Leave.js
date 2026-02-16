@@ -32,9 +32,22 @@ const leaveSchema = new mongoose.Schema({
   alternateFaculty: String,
   documentName: String,
   documentPath: String,
+  documentRequired: {
+    type: Boolean,
+    default: false
+  },
   days: {
     type: Number,
     required: true
+  },
+  hours: {
+    type: Number,
+    default: 0
+  },
+  // For compensation leave
+  nightSkillDays: {
+    type: Number,
+    default: 0
   },
   hodStatus: {
     type: String,
@@ -57,7 +70,21 @@ const leaveSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
-  department: String
+  department: String,
+  academicYear: {
+    type: String,
+    default: function() {
+      const date = new Date();
+      const year = date.getFullYear();
+      const month = date.getMonth();
+      // Academic year runs from April to March
+      if (month >= 3) { // April to December
+        return `${year}-${year + 1}`;
+      } else { // January to March
+        return `${year - 1}-${year}`;
+      }
+    }
+  }
 });
 
 module.exports = mongoose.model('Leave', leaveSchema);

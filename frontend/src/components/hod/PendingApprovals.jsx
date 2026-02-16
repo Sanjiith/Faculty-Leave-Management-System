@@ -47,17 +47,14 @@ const PendingApprovals = ({ hodDepartment, onLeaveAction }) => {
       );
 
       if (response.data.success) {
-        // Remove approved/rejected leave from list
         setPendingLeaves(prev =>
           prev.filter(leave => leave._id !== leaveId)
         );
         
-        // Update parent component stats
         if (onLeaveAction) {
           onLeaveAction(status);
         }
 
-        // Show success message
         alert(`Leave ${status} successfully!`);
       }
 
@@ -94,7 +91,7 @@ const PendingApprovals = ({ hodDepartment, onLeaveAction }) => {
       {pendingLeaves.map((leave) => (
         <div
           key={leave._id}
-          className="border border-gray-200 dark:border-gray-700 rounded-lg p-5"
+          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5"
         >
           <div className="flex justify-between items-center mb-4">
             <div>

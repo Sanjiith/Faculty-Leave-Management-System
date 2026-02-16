@@ -20,9 +20,17 @@ const FacultyDetails = ({ facultyData }) => {
   const leaveBalance = facultyData?.leaveBalance || {
     casualLeave: 12,
     medicalLeave: 15,
-    earnedLeave: 30,
-    totalAvailable: 57
+    summerLeave: 3,
+    winterLeave: 3,
+    permissionLeaves: {
+      total: 2,
+      used: 0,
+      available: 2
+    }
   };
+
+  const availablePermissionLeaves = leaveBalance.permissionLeaves?.available || 
+    (2 - (leaveBalance.permissionLeaves?.used || 0));
 
   return (
     <div>
@@ -116,30 +124,34 @@ const FacultyDetails = ({ facultyData }) => {
             </div>
           </div>
 
-          {/* Leave Balance Summary */}
+          {/* Leave Balance Summary - Updated */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-blue-100 dark:border-blue-800">
             <h4 className="font-bold text-gray-800 dark:text-white mb-4">Leave Balance Summary</h4>
             <div className="space-y-3">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Casual Leave</span>
+                <span className="text-gray-600 dark:text-gray-400">Casual Leave (Yearly)</span>
                 <span className="font-bold text-gray-800 dark:text-white">{leaveBalance.casualLeave} Days</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Medical Leave</span>
+                <span className="text-gray-600 dark:text-gray-400">Medical Leave (Yearly)</span>
                 <span className="font-bold text-gray-800 dark:text-white">{leaveBalance.medicalLeave} Days</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600 dark:text-gray-400">Earned Leave</span>
-                <span className="font-bold text-gray-800 dark:text-white">{leaveBalance.earnedLeave} Days</span>
+                <span className="text-gray-600 dark:text-gray-400">Summer Leave (Yearly)</span>
+                <span className="font-bold text-gray-800 dark:text-white">{leaveBalance.summerLeave || 3} Days</span>
               </div>
-              <div className="pt-3 border-t border-gray-200 dark:border-gray-700">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-800 dark:text-white font-bold">Total Available</span>
-                  <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                    {leaveBalance.totalAvailable || 
-                     (leaveBalance.casualLeave + leaveBalance.medicalLeave + leaveBalance.earnedLeave)} Days
-                  </span>
-                </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 dark:text-gray-400">Winter Leave (Yearly)</span>
+                <span className="font-bold text-gray-800 dark:text-white">{leaveBalance.winterLeave || 3} Days</span>
+              </div>
+              <div className="flex justify-between items-center border-t border-gray-200 dark:border-gray-700 pt-3 mt-2">
+                <span className="text-gray-600 dark:text-gray-400">Permission Leave (Monthly)</span>
+                <span className="font-bold text-gray-800 dark:text-white">
+                  {availablePermissionLeaves} / 2 Leaves
+                </span>
+              </div>
+              <div className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                *Permission leaves are half-day leaves (max 4 hours)
               </div>
             </div>
           </div>

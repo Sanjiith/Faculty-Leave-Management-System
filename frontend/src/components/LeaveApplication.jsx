@@ -164,7 +164,7 @@ const LeaveApplication = ({ facultyData }) => {
           </div>
         )}
 
-        {/* Date Selection */}
+        {/* Date Selection - Fixed calendar icon color */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -176,7 +176,8 @@ const LeaveApplication = ({ facultyData }) => {
               name="fromDate"
               value={leaveData.fromDate}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white date-input"
+              style={{ colorScheme: 'light' }} // Force light color scheme for date picker
               required
             />
           </div>
@@ -192,13 +193,14 @@ const LeaveApplication = ({ facultyData }) => {
               value={leaveData.toDate}
               onChange={handleChange}
               min={leaveData.fromDate}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white date-input"
+              style={{ colorScheme: 'light' }} // Force light color scheme for date picker
               required
             />
           </div>
         </div>
 
-        {/* Time Selection */}
+        {/* Time Selection - Fixed clock icon color */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -210,7 +212,8 @@ const LeaveApplication = ({ facultyData }) => {
               name="fromTime"
               value={leaveData.fromTime}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white time-input"
+              style={{ colorScheme: 'light' }} // Force light color scheme for time picker
               required
             />
           </div>
@@ -225,7 +228,8 @@ const LeaveApplication = ({ facultyData }) => {
               name="toTime"
               value={leaveData.toTime}
               onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white time-input"
+              style={{ colorScheme: 'light' }} // Force light color scheme for time picker
               required
             />
           </div>
@@ -262,38 +266,43 @@ const LeaveApplication = ({ facultyData }) => {
           />
         </div>
 
-        {/* Document Upload */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-            <Upload className="inline-block mr-2" size={16} />
-            Supporting Document (Optional)
-          </label>
-          <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg bg-white dark:bg-gray-700">
-            <div className="space-y-1 text-center">
-              <div className="flex text-sm text-gray-600 dark:text-gray-400">
-                <label className="relative cursor-pointer rounded-md font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500">
-                  <span>Upload a file</span>
-                  <input
-                    type="file"
-                    name="document"
-                    onChange={handleChange}
-                    className="sr-only"
-                    accept=".pdf,.doc,.docx,.jpg,.png"
-                  />
-                </label>
-                <p className="pl-1">or drag and drop</p>
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                PDF, DOC, JPG, PNG up to 10MB
-              </p>
-              {leaveData.document && (
-                <p className="text-sm text-green-600 dark:text-green-400">
-                  ✓ {leaveData.document.name}
-                </p>
-              )}
-            </div>
-          </div>
-        </div>
+        {/* Document Upload - Required for Medical Leave */}
+<div>
+  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+    <Upload className="inline-block mr-2" size={16} />
+    {leaveData.leaveType === 'Medical Leave' ? 'Medical Certificate *' : 'Supporting Document (Optional)'}
+  </label>
+  <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 dark:border-gray-600 border-dashed rounded-lg bg-white dark:bg-gray-700">
+    <div className="space-y-1 text-center">
+      <Upload className="mx-auto text-gray-400" size={32} />
+      <div className="flex text-sm text-gray-600 dark:text-gray-400">
+        <label className="relative cursor-pointer rounded-md font-medium text-blue-600 dark:text-blue-400 hover:text-blue-500">
+          <span>Upload a file</span>
+          <input
+            type="file"
+            name="document"
+            onChange={handleChange}
+            className="sr-only"
+            accept=".pdf,.doc,.docx,.jpg,.png"
+            required={leaveData.leaveType === 'Medical Leave'}
+          />
+        </label>
+        <p className="pl-1">or drag and drop</p>
+      </div>
+      <p className="text-xs text-gray-500 dark:text-gray-400">
+        PDF, DOC, JPG, PNG up to 10MB
+      </p>
+      {leaveData.document && (
+        <p className="text-sm text-green-600 dark:text-green-400">
+          ✓ {leaveData.document.name}
+        </p>
+      )}
+      {leaveData.leaveType === 'Medical Leave' && !leaveData.document && (
+        <p className="text-xs text-red-500 mt-1">Medical certificate is required</p>
+      )}
+    </div>
+  </div>
+</div>
 
         {/* Minimum Hours Alert */}
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
@@ -309,6 +318,22 @@ const LeaveApplication = ({ facultyData }) => {
             </div>
           </div>
         </div>
+        {/* Time Conflict Warning */}
+{leaveData.fromDate === leaveData.toDate && leaveData.fromTime && leaveData.toTime && (
+  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
+    <div className="flex items-start">
+      <AlertCircle className="text-yellow-600 dark:text-yellow-400 mt-0.5 mr-3" size={20} />
+      <div>
+        <p className="font-medium text-yellow-800 dark:text-yellow-300">
+          Time Conflict Prevention
+        </p>
+        <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">
+          System will check for overlapping leaves on the same day. You cannot apply for leaves that overlap with existing approved/pending leaves.
+        </p>
+      </div>
+    </div>
+  </div>
+)}
 
         {/* Submit Button */}
         <div className="pt-6 border-t border-gray-200 dark:border-gray-700">

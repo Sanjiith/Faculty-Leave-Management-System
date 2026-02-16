@@ -58,7 +58,7 @@ const ApprovalHistory = ({ hodDepartment }) => {
       {history.map((leave) => (
         <div
           key={leave._id}
-          className="border border-gray-200 dark:border-gray-700 rounded-lg p-5"
+          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5"
         >
           <div className="flex justify-between items-center mb-2">
             <div>

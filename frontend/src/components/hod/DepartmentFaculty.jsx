@@ -58,7 +58,7 @@ const DepartmentFaculty = ({ hodDepartment }) => {
       {facultyList.map((faculty) => (
         <div
           key={faculty._id}
-          className="border border-gray-200 dark:border-gray-700 rounded-lg p-5 flex justify-between items-center"
+          className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-5 flex justify-between items-center"
         >
           <div>
             <h3 className="font-semibold text-gray-800 dark:text-white">

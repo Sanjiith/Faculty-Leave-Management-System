@@ -21,7 +21,6 @@ const userSchema = new mongoose.Schema({
   staffId: {
     type: String,
     required: true,
-    // unique: true, // Comment this out temporarily for seeding
   },
   personalDetails: {
     name: String,
@@ -32,12 +31,23 @@ const userSchema = new mongoose.Schema({
     phone: String,
     officeRoom: String,
     qualifications: [String],
-    researchAreas: [String]
+    researchAreas: [String],
+    gender: {
+      type: String,
+      enum: ['male', 'female', 'other'],
+      default: 'male'
+    }
   },
   leaveBalance: {
     casualLeave: { type: Number, default: 12 },
     medicalLeave: { type: Number, default: 15 },
-    earnedLeave: { type: Number, default: 30 }
+    summerLeave: { type: Number, default: 3 },
+    winterLeave: { type: Number, default: 3 },
+    permissionLeaves: { 
+      total: { type: Number, default: 2 },
+      used: { type: Number, default: 0 },
+      month: { type: String, default: null }
+    }
   },
   hodOf: {
     type: String,
@@ -65,6 +75,19 @@ userSchema.pre('save', async function(next) {
 // Compare password method
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
+};
+
+// Method to reset monthly permission leaves
+userSchema.methods.resetMonthlyPermissionLeaves = function() {
+  const now = new Date();
+  const currentMonth = `${now.getFullYear()}-${now.getMonth() + 1}`;
+  
+  if (this.leaveBalance.permissionLeaves.month !== currentMonth) {
+    this.leaveBalance.permissionLeaves.used = 0;
+    this.leaveBalance.permissionLeaves.month = currentMonth;
+    return true;
+  }
+  return false;
 };
 
 module.exports = mongoose.model('User', userSchema);

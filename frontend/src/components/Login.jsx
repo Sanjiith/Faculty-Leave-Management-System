@@ -77,7 +77,7 @@ const Login = ({ onLogin }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white transition-colors"
-              placeholder="faculty@college.edu"
+              placeholder="Email"
               required
             />
           </div>
@@ -92,7 +92,7 @@ const Login = ({ onLogin }) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 pr-12 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white text-gray-900 dark:bg-gray-700 dark:text-white transition-colors"
-                placeholder="••••••••"
+                placeholder="Password"
                 required
               />
               <button
@@ -141,7 +141,7 @@ const Login = ({ onLogin }) => {
         <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm">
           <p className="font-semibold text-gray-800 dark:text-white mb-2">Demo Credentials:</p>
           <p className="text-gray-600 dark:text-gray-300"><b>CSE HOD:</b> computer.hod@college.edu</p>
-          <p className="text-gray-600 dark:text-gray-300"><b>CSE FAC:</b> sarahjohnson@college.edu</p>
+          <p className="text-gray-600 dark:text-gray-300"><b>CSE FAC:</b> profmichaelchen@college.edu</p>
           <p className="text-gray-600 dark:text-gray-300"><b>Password:</b> password123</p>
         </div>
 
