@@ -20,6 +20,19 @@ router.get('/profile', protect, hodOnly, async (req, res) => {
       'personalDetails.department': hod.hodOf
     });
 
+    // Get approved leaves for today (for workload warning)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const facultyOnLeaveToday = await Leave.countDocuments({
+      department: hod.hodOf,
+      status: 'approved',
+      startDate: { $lte: today.toISOString().split('T')[0] },
+      endDate: { $gte: today.toISOString().split('T')[0] }
+    });
+
     const approvedLeaves = await Leave.countDocuments({
       department: hod.hodOf,
       hodStatus: 'approved',
@@ -39,7 +52,8 @@ router.get('/profile', protect, hodOnly, async (req, res) => {
         totalFaculty,
         approvedLeaves,
         rejectedLeaves,
-        approvedToday: approvedLeaves
+        approvedToday: approvedLeaves,
+        facultyOnLeaveToday
       }
     });
   } catch (error) {
@@ -56,9 +70,24 @@ router.get('/pending-leaves', protect, hodOnly, async (req, res) => {
       hodStatus: 'pending'
     }).populate('faculty', 'personalDetails email');
 
+    // Get count of faculty already on leave for each date
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const facultyOnLeaveToday = await Leave.countDocuments({
+      department: req.user.hodOf,
+      status: 'approved',
+      startDate: { $lte: today.toISOString().split('T')[0] },
+      endDate: { $gte: today.toISOString().split('T')[0] }
+    });
+
     res.json({
       success: true,
-      leaves
+      leaves,
+      workload: {
+        facultyOnLeaveToday,
+        maxAllowed: 2 // Maximum 2 faculty can be on leave at once
+      }
     });
   } catch (error) {
     console.error('Error fetching pending leaves:', error);
@@ -80,6 +109,47 @@ router.put('/approve-leave/:id', protect, hodOnly, async (req, res) => {
     // Check if leave belongs to HOD's department
     if (leave.department !== req.user.hodOf) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    // If approving, check workload
+    if (status === 'approved') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      // Parse leave dates
+      const startDate = new Date(leave.startDate);
+      const endDate = new Date(leave.endDate);
+      
+      // Check each date in the leave range
+      let workloadWarning = false;
+      let conflictDates = [];
+      
+      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split('T')[0];
+        
+        // Count approved leaves for this date (excluding current leave)
+        const facultyOnLeave = await Leave.countDocuments({
+          department: req.user.hodOf,
+          status: 'approved',
+          _id: { $ne: leave._id }, // Exclude current leave
+          startDate: { $lte: dateStr },
+          endDate: { $gte: dateStr }
+        });
+        
+        if (facultyOnLeave >= 2) {
+          workloadWarning = true;
+          conflictDates.push(dateStr);
+        }
+      }
+      
+      if (workloadWarning) {
+        return res.status(400).json({
+          success: false,
+          workloadWarning: true,
+          message: `Warning: ${conflictDates.length > 1 ? 'On these dates' : 'On this date'} ${conflictDates.join(', ')}, 2 faculty members are already on leave. Approving this leave will make it 3. Do you still want to approve?`,
+          conflictDates
+        });
+      }
     }
 
     // Update HOD status
@@ -175,6 +245,47 @@ router.get('/approval-history', protect, hodOnly, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching approval history:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// @route   GET /api/hod/workload-status
+router.get('/workload-status', protect, hodOnly, async (req, res) => {
+  try {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Get faculty on leave today
+    const facultyOnLeaveToday = await Leave.countDocuments({
+      department: req.user.hodOf,
+      status: 'approved',
+      startDate: { $lte: today.toISOString().split('T')[0] },
+      endDate: { $gte: today.toISOString().split('T')[0] }
+    });
+
+    // Get detailed list of faculty on leave
+    const facultyOnLeave = await Leave.find({
+      department: req.user.hodOf,
+      status: 'approved',
+      startDate: { $lte: today.toISOString().split('T')[0] },
+      endDate: { $gte: today.toISOString().split('T')[0] }
+    }).populate('faculty', 'personalDetails email');
+
+    res.json({
+      success: true,
+      workload: {
+        facultyOnLeaveToday,
+        maxAllowed: 2,
+        facultyOnLeave: facultyOnLeave.map(l => ({
+          name: l.faculty?.personalDetails?.name,
+          leaveType: l.leaveType,
+          fromTime: l.fromTime,
+          toTime: l.toTime
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('Error fetching workload status:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });

@@ -49,7 +49,7 @@ router.post('/leave/apply', protect, facultyOnly, async (req, res) => {
     const diffTime = Math.abs(to - from);
     const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
     
-    // Calculate hours for permission leave
+    // Calculate hours for permission leave and regular leave
     let hours = 0;
     if (fromTime && toTime) {
       const fromTimeArr = fromTime.split(':');
@@ -92,6 +92,23 @@ router.post('/leave/apply', protect, facultyOnly, async (req, res) => {
     const month = from.getMonth() + 1; // 1-12
 
     // Validation rules
+    switch (leaveType) {
+      case 'Casual Leave':
+      case 'Medical Leave':
+      case 'Maternity Leave':
+      case 'Winter Leave':
+      case 'Summer Leave':
+      case 'Compensation Leave':
+        // Check minimum 8 hours for full day leaves
+        if (fromDate === toDate && hours < 8 && hours > 0) {
+          return res.status(400).json({
+            success: false,
+            message: 'Minimum 8 hours required for full day leave. For shorter duration, please apply for Permission Leave.'
+          });
+        }
+        break;
+    }
+
     switch (leaveType) {
       case 'Casual Leave':
         if (req.user.leaveBalance.casualLeave < days) {
@@ -173,6 +190,12 @@ router.post('/leave/apply', protect, facultyOnly, async (req, res) => {
             message: 'Permission Leave cannot exceed 4 hours (half day)'
           });
         }
+        if (hours < 1) {
+          return res.status(400).json({
+            success: false,
+            message: 'Permission Leave must be at least 1 hour'
+          });
+        }
         
         // Check monthly limit (2 per month)
         const availablePermissionLeaves = 2 - (req.user.leaveBalance.permissionLeaves.used || 0);
@@ -243,6 +266,57 @@ router.post('/leave/apply', protect, facultyOnly, async (req, res) => {
 
   } catch (error) {
     console.error('Error applying for leave:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/faculty/leave/cancel/:id
+// @desc    Cancel a pending leave application
+router.put('/leave/cancel/:id', protect, facultyOnly, async (req, res) => {
+  try {
+    const leave = await Leave.findById(req.params.id);
+    
+    if (!leave) {
+      return res.status(404).json({ success: false, message: 'Leave not found' });
+    }
+
+    // Check if leave belongs to this faculty
+    if (leave.facultyId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    // Check if leave is still pending
+    if (leave.status !== 'pending') {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Cannot cancel leave with status: ${leave.status}` 
+      });
+    }
+
+    // Update leave status to cancelled
+    leave.status = 'cancelled';
+    leave.hodStatus = 'cancelled';
+    leave.principalStatus = 'cancelled';
+    
+    await leave.save();
+
+    // If it was a permission leave, revert the used count
+    if (leave.leaveType === 'Permission Leave') {
+      const faculty = await User.findById(req.user._id);
+      if (faculty.leaveBalance.permissionLeaves.used > 0) {
+        faculty.leaveBalance.permissionLeaves.used -= 1;
+        await faculty.save();
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Leave application cancelled successfully',
+      leave
+    });
+
+  } catch (error) {
+    console.error('Error cancelling leave:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
