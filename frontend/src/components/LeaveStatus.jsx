@@ -240,10 +240,10 @@ const LeaveStatus = ({ facultyData }) => {
                     )}
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-1.5">
                       {getStatusIcon(application.status)}
-                      <span className={`ml-1 sm:ml-2 px-2 py-0.5 sm:px-3 sm:py-1 text-xs rounded-full ${getStatusColor(application.status)}`}>
-                        {application.status.charAt(0).toUpperCase()}
+                      <span className={`px-2 py-0.5 sm:px-3 sm:py-1 text-xs rounded-full font-medium ${getStatusColor(application.status)}`}>
+                        {application.status.charAt(0).toUpperCase() + application.status.slice(1)}
                       </span>
                     </div>
                   </td>

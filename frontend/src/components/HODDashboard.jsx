@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Calendar, 
-  Users, 
-  CheckCircle, 
-  XCircle, 
+import {
+  Calendar,
+  Users,
+  CheckCircle,
+  XCircle,
   Clock,
   FileText,
   LogOut,
@@ -16,6 +16,7 @@ import axios from 'axios';
 import PendingApprovals from './hod/PendingApprovals';
 import DepartmentFaculty from './hod/DepartmentFaculty';
 import ApprovalHistory from './hod/ApprovalHistory';
+import Sidebar from './Sidebar';
 
 const HODDashboard = ({ onLogout, user }) => {
   const [activeTab, setActiveTab] = useState('pending');
@@ -49,7 +50,7 @@ const HODDashboard = ({ onLogout, user }) => {
       const response = await axios.get('http://localhost:5000/api/hod/profile', {
         headers: { Authorization: `Bearer ${token}` }
       });
-      
+
       if (response.data.success) {
         setHodData(response.data.hod);
         setStats(response.data.statistics);
@@ -91,194 +92,145 @@ const HODDashboard = ({ onLogout, user }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-            <div className="flex items-center space-x-3 sm:space-x-4 w-full sm:w-auto">
-              <div className="bg-blue-100 dark:bg-blue-900 p-1.5 sm:p-2 rounded-lg flex-shrink-0">
-                <Calendar className="text-blue-600 dark:text-blue-400" size={20} />
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex">
+      {/* Sidebar */}
+      <Sidebar
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onLogout={onLogout}
+        isDark={isDark}
+        toggleDarkMode={toggleDarkMode}
+        userData={hodData}
+        userType="hod"
+        hodStats={stats}
+      />
+
+      {/* Main Content */}
+      <main className="flex-1 transition-all duration-300">
+        {/* Header - Hidden on mobile (now in sidebar) */}
+        <header className="hidden lg:block bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="bg-blue-100 dark:bg-blue-900 p-2 rounded-lg">
+                  <Calendar className="text-blue-600 dark:text-blue-400" size={24} />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-800 dark:text-white">
+                    HOD Dashboard - {hodData?.hodOf}
+                  </h1>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {hodData?.personalDetails?.name} | Head of Department
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1 sm:flex-none">
-                <h1 className="text-base sm:text-xl font-bold text-gray-800 dark:text-white truncate">
-                  HOD Dashboard
-                </h1>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 truncate">
-                  {hodData?.hodOf}
-                </p>
+
+              <div className="flex items-center space-x-4">
+                <button
+                  onClick={toggleDarkMode}
+                  className="p-2 rounded-lg bg-white dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+                  aria-label="Toggle dark mode"
+                >
+                  {isDark ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-gray-600" />}
+                </button>
+
+                <div className="relative">
+                  <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition bg-white dark:bg-gray-800">
+                    <Bell size={20} className="text-gray-600 dark:text-gray-400" />
+                    {stats.pendingLeaves > 0 && (
+                      <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs flex items-center justify-center rounded-full">
+                        {stats.pendingLeaves > 9 ? '9+' : stats.pendingLeaves}
+                      </span>
+                    )}
+                  </button>
+                </div>
+
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                    <Users className="text-blue-600 dark:text-blue-400" size={20} />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-800 dark:text-white">
+                      {hodData?.personalDetails?.name}
+                    </p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">HOD - {hodData?.hodOf}</p>
+                  </div>
+                </div>
               </div>
             </div>
+          </div>
+        </header>
 
-            <div className="flex items-center justify-between sm:justify-end space-x-2 sm:space-x-4 w-full sm:w-auto">
-              <button
-                onClick={toggleDarkMode}
-                className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors bg-white dark:bg-gray-800 flex-shrink-0"
-                aria-label="Toggle dark mode"
-              >
-                {isDark ? <Sun size={18} className="text-yellow-400" /> : <Moon size={18} className="text-gray-600" />}
-              </button>
+        {/* Page Content */}
+        <div className="p-4 sm:p-6 lg:p-8">
+          {/* Mobile Tabs (hidden on desktop) */}
+          <div className="lg:hidden flex space-x-1 bg-white dark:bg-gray-800 rounded-lg p-1 mb-6 shadow-sm">
+            {[
+              { id: 'pending', label: 'Pending', icon: Clock, badge: stats.pendingLeaves },
+              { id: 'faculty', label: 'Faculty', icon: Users },
+              { id: 'history', label: 'History', icon: FileText }
+            ].map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
 
-              <div className="relative">
-                <button className="p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors bg-white dark:bg-gray-800">
-                  <Bell size={18} className="text-gray-600 dark:text-gray-400" />
-                  {stats.pendingLeaves > 0 && (
-                    <span className="absolute top-0 right-0 w-3.5 h-3.5 sm:w-4 sm:h-4 bg-red-500 text-white text-[10px] flex items-center justify-center rounded-full">
-                      {stats.pendingLeaves > 9 ? '9+' : stats.pendingLeaves}
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex-1 py-2 px-3 rounded-md text-xs font-medium transition relative ${isActive
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                >
+                  <Icon className="inline-block mr-1" size={14} />
+                  {tab.label}
+                  {tab.badge > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 bg-yellow-500 text-white text-[10px] rounded-full">
+                      {tab.badge}
                     </span>
                   )}
                 </button>
-              </div>
-
-              <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center flex-shrink-0">
-                  <Users className="text-blue-600 dark:text-blue-400" size={16} />
-                </div>
-                <div className="min-w-0">
-                  <p className="font-medium text-xs sm:text-sm text-gray-800 dark:text-white truncate">
-                    {hodData?.personalDetails?.name}
-                  </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 truncate">HOD</p>
-                </div>
-              </div>
-
-              <button
-                onClick={onLogout}
-                className="p-1.5 sm:p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors bg-white dark:bg-gray-800 flex-shrink-0"
-                aria-label="Logout"
-              >
-                <LogOut size={18} />
-              </button>
-            </div>
+              );
+            })}
           </div>
-        </div>
-      </header>
 
-      {/* Main Content */}
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-8">
-        {/* Stats Cards - Responsive grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-6 mb-6 sm:mb-8">
-          <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl shadow p-3 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Pending</p>
-                <p className="text-lg sm:text-3xl font-bold text-yellow-600 dark:text-yellow-400">
-                  {stats.pendingLeaves}
-                </p>
-              </div>
-              <div className="p-1.5 sm:p-3 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
-                <Clock className="text-yellow-600 dark:text-yellow-400" size={18} />
-              </div>
+          {/* Stats Cards - all screen sizes */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Pending</p>
+              <p className="text-xl font-bold text-yellow-600 dark:text-yellow-400">{stats.pendingLeaves}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Total Faculty</p>
+              <p className="text-xl font-bold text-blue-600 dark:text-blue-400">{stats.totalFaculty}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400">On Leave Today</p>
+              <p className={`text-xl font-bold ${stats.facultyOnLeaveToday >= 2 ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400'}`}>
+                {stats.facultyOnLeaveToday}
+              </p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Approved</p>
+              <p className="text-xl font-bold text-green-600 dark:text-green-400">{stats.approvedLeaves || 0}</p>
+            </div>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-3 col-span-2 sm:col-span-1">
+              <p className="text-xs text-gray-500 dark:text-gray-400">Rejected</p>
+              <p className="text-xl font-bold text-red-600 dark:text-red-400">{stats.rejectedLeaves || 0}</p>
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl shadow p-3 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Faculty</p>
-                <p className="text-lg sm:text-3xl font-bold text-blue-600 dark:text-blue-400">
-                  {stats.totalFaculty}
-                </p>
-              </div>
-              <div className="p-1.5 sm:p-3 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                <Users className="text-blue-600 dark:text-blue-400" size={18} />
-              </div>
-            </div>
+          {/* Content Area */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 overflow-x-auto">
+            {activeTab === 'pending' && (
+              <PendingApprovals
+                hodDepartment={hodData?.hodOf}
+                onLeaveAction={handleLeaveAction}
+              />
+            )}
+            {activeTab === 'faculty' && <DepartmentFaculty hodDepartment={hodData?.hodOf} />}
+            {activeTab === 'history' && <ApprovalHistory hodDepartment={hodData?.hodOf} />}
           </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl shadow p-3 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">On Leave</p>
-                <p className={`text-lg sm:text-3xl font-bold ${stats.facultyOnLeaveToday >= 2 ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400'}`}>
-                  {stats.facultyOnLeaveToday}
-                </p>
-              </div>
-              <div className={`p-1.5 sm:p-3 rounded-lg ${stats.facultyOnLeaveToday >= 2 ? 'bg-yellow-100 dark:bg-yellow-900/30' : 'bg-green-100 dark:bg-green-900/30'}`}>
-                <AlertTriangle className={stats.facultyOnLeaveToday >= 2 ? 'text-yellow-600 dark:text-yellow-400' : 'text-green-600 dark:text-green-400'} size={18} />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl shadow p-3 sm:p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Approved</p>
-                <p className="text-lg sm:text-3xl font-bold text-green-600 dark:text-green-400">
-                  {stats.approvedLeaves || 0}
-                </p>
-              </div>
-              <div className="p-1.5 sm:p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                <CheckCircle className="text-green-600 dark:text-green-400" size={18} />
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white dark:bg-gray-800 rounded-lg sm:rounded-xl shadow p-3 sm:p-6 col-span-2 sm:col-span-1">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400">Rejected</p>
-                <p className="text-lg sm:text-3xl font-bold text-red-600 dark:text-red-400">
-                  {stats.rejectedLeaves || 0}
-                </p>
-              </div>
-              <div className="p-1.5 sm:p-3 bg-red-100 dark:bg-red-900/30 rounded-lg">
-                <XCircle className="text-red-600 dark:text-red-400" size={18} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Navigation Tabs - Responsive */}
-        <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-1 bg-white dark:bg-gray-800 rounded-lg p-1 mb-6 sm:mb-8 shadow-sm">
-          <button
-            onClick={() => setActiveTab('pending')}
-            className={`w-full sm:flex-1 py-2 sm:py-3 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition ${
-              activeTab === 'pending'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
-            }`}
-          >
-            <Clock className="inline-block mr-1 sm:mr-2" size={14} />
-            <span className="hidden xs:inline">Pending</span>
-            <span className="xs:hidden">Pending</span> ({stats.pendingLeaves})
-          </button>
-          <button
-            onClick={() => setActiveTab('faculty')}
-            className={`w-full sm:flex-1 py-2 sm:py-3 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition ${
-              activeTab === 'faculty'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
-            }`}
-          >
-            <Users className="inline-block mr-1 sm:mr-2" size={14} />
-            <span className="hidden xs:inline">Faculty</span>
-            <span className="xs:hidden">Faculty</span>
-          </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`w-full sm:flex-1 py-2 sm:py-3 px-3 sm:px-4 rounded-md text-xs sm:text-sm font-medium transition ${
-              activeTab === 'history'
-                ? 'bg-blue-600 text-white'
-                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-300'
-            }`}
-          >
-            <FileText className="inline-block mr-1 sm:mr-2" size={14} />
-            <span className="hidden xs:inline">History</span>
-            <span className="xs:hidden">History</span>
-          </button>
-        </div>
-
-        {/* Content Area */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-4 sm:p-6 overflow-x-auto">
-          {activeTab === 'pending' && (
-            <PendingApprovals 
-              hodDepartment={hodData?.hodOf} 
-              onLeaveAction={handleLeaveAction}
-            />
-          )}
-          {activeTab === 'faculty' && <DepartmentFaculty hodDepartment={hodData?.hodOf} />}
-          {activeTab === 'history' && <ApprovalHistory hodDepartment={hodData?.hodOf} />}
         </div>
       </main>
     </div>

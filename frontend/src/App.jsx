@@ -48,7 +48,10 @@ function App() {
   };
 
   const handleLogout = () => {
+    // Preserve theme preference — only clear auth-related keys
+    const darkMode = localStorage.getItem('darkMode');
     localStorage.clear();
+    if (darkMode !== null) localStorage.setItem('darkMode', darkMode);
     setIsLoggedIn(false);
   };
 
@@ -61,7 +64,7 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {isLoggedIn ? (
         <Dashboard onLogout={handleLogout} />
       ) : (
