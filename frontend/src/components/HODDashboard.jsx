@@ -17,6 +17,7 @@ import PendingApprovals from './hod/PendingApprovals';
 import DepartmentFaculty from './hod/DepartmentFaculty';
 import ApprovalHistory from './hod/ApprovalHistory';
 import Sidebar from './Sidebar';
+import NotificationBell from './NotificationBell';
 
 const HODDashboard = ({ onLogout, user }) => {
   const [activeTab, setActiveTab] = useState('pending');
@@ -43,6 +44,16 @@ const HODDashboard = ({ onLogout, user }) => {
       document.documentElement.classList.remove('dark');
     }
   }, [isDark]);
+
+  // Tab change listener for notifications
+  useEffect(() => {
+    const handleTabChange = (event) => {
+      setActiveTab(event.detail.tab);
+    };
+    
+    window.addEventListener('changeTab', handleTabChange);
+    return () => window.removeEventListener('changeTab', handleTabChange);
+  }, []);
 
   const fetchHODData = async () => {
     try {
@@ -134,16 +145,8 @@ const HODDashboard = ({ onLogout, user }) => {
                   {isDark ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-gray-600" />}
                 </button>
 
-                <div className="relative">
-                  <button className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition bg-white dark:bg-gray-800">
-                    <Bell size={20} className="text-gray-600 dark:text-gray-400" />
-                    {stats.pendingLeaves > 0 && (
-                      <span className="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-xs flex items-center justify-center rounded-full">
-                        {stats.pendingLeaves > 9 ? '9+' : stats.pendingLeaves}
-                      </span>
-                    )}
-                  </button>
-                </div>
+                {/* Notification Bell Component */}
+                <NotificationBell userType="hod" />
 
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import HODDashboard from './HODDashboard';
 import Sidebar from './Sidebar';
+import NotificationBell from './NotificationBell';
 
 // Faculty imports
 import {
@@ -14,11 +15,13 @@ import {
   Clock,
   XCircle,
   Moon,
-  Sun
+  Sun,
+  UserPlus
 } from 'lucide-react';
 import FacultyDetails from './FacultyDetails';
 import LeaveApplication from './LeaveApplication';
 import LeaveStatus from './LeaveStatus';
+import SubstituteRequests from './SubstituteRequests';
 
 const Dashboard = ({ onLogout }) => {
 
@@ -80,6 +83,16 @@ const Dashboard = ({ onLogout }) => {
       document.documentElement.classList.remove('dark');
     }
   }, [isDark]);
+
+  // Tab change listener for notifications
+  useEffect(() => {
+    const handleTabChange = (event) => {
+      setActiveTab(event.detail.tab);
+    };
+    
+    window.addEventListener('changeTab', handleTabChange);
+    return () => window.removeEventListener('changeTab', handleTabChange);
+  }, []);
 
   const toggleDarkMode = () => {
     const newDarkMode = !isDark;
@@ -153,6 +166,9 @@ const Dashboard = ({ onLogout }) => {
                   {isDark ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-gray-600" />}
                 </button>
 
+                {/* Notification Bell Component */}
+                <NotificationBell userType={userType} />
+
                 <div className="flex items-center space-x-3">
                   <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
                     <User className="text-blue-600 dark:text-blue-400" size={20} />
@@ -174,11 +190,12 @@ const Dashboard = ({ onLogout }) => {
         {/* Page Content */}
         <div className="p-4 sm:p-6 lg:p-8">
           {/* Mobile Tabs (hidden on desktop) */}
-          <div className="lg:hidden flex space-x-1 bg-white dark:bg-gray-800 rounded-lg p-1 mb-6 shadow-sm">
+          <div className="lg:hidden flex space-x-1 bg-white dark:bg-gray-800 rounded-lg p-1 mb-6 shadow-sm overflow-x-auto">
             {[
               { id: 'details', label: 'Details', icon: User },
               { id: 'apply', label: 'Apply', icon: FileText },
-              { id: 'status', label: 'Status', icon: CheckCircle }
+              { id: 'status', label: 'Status', icon: CheckCircle },
+              { id: 'substitute', label: 'Requests', icon: UserPlus }
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
@@ -187,7 +204,7 @@ const Dashboard = ({ onLogout }) => {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex-1 py-2 px-3 rounded-md text-xs font-medium transition ${isActive
+                  className={`flex-1 py-2 px-3 rounded-md text-xs font-medium transition whitespace-nowrap ${isActive
                       ? 'bg-blue-600 text-white'
                       : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
                     }`}
@@ -204,6 +221,7 @@ const Dashboard = ({ onLogout }) => {
             {activeTab === 'details' && <FacultyDetails facultyData={facultyData} />}
             {activeTab === 'apply' && <LeaveApplication facultyData={facultyData} />}
             {activeTab === 'status' && <LeaveStatus facultyData={facultyData} />}
+            {activeTab === 'substitute' && <SubstituteRequests />}
           </div>
         </div>
       </main>

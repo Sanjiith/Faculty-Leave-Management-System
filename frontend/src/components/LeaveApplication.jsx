@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Calendar, Clock, AlertCircle, Upload } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Clock, AlertCircle, Upload, UserPlus, X } from 'lucide-react';
 import axios from 'axios';
 
 const LeaveApplication = ({ facultyData }) => {
@@ -12,11 +12,19 @@ const LeaveApplication = ({ facultyData }) => {
     reason: '',
     alternateFaculty: '',
     document: null,
-    nightSkillDays: '', // For compensation leave
+    nightSkillDays: '',
+    substituteFacultyId: '',
+    substituteFacultyName: ''
   });
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
+  const [requiresSubstitute, setRequiresSubstitute] = useState(false);
+  const [facultyOnLeave, setFacultyOnLeave] = useState(0);
+  const [showSubstituteModal, setShowSubstituteModal] = useState(false);
+  const [availableFaculty, setAvailableFaculty] = useState([]);
+  const [substituteSearch, setSubstituteSearch] = useState('');
+  const [selectedSubstitute, setSelectedSubstitute] = useState(null);
 
   const leaveTypes = [
     'Casual Leave',
@@ -27,6 +35,22 @@ const LeaveApplication = ({ facultyData }) => {
     'Permission Leave',
     'Compensation Leave'
   ];
+
+  useEffect(() => {
+    fetchAvailableFaculty();
+  }, []);
+
+  const fetchAvailableFaculty = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5000/api/faculty/all-faculty', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAvailableFaculty(response.data.faculty);
+    } catch (error) {
+      console.error('Error fetching faculty:', error);
+    }
+  };
 
   const handleChange = (e) => {
     const { name, value, files } = e.target;
@@ -61,65 +85,36 @@ const LeaveApplication = ({ facultyData }) => {
     return 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const checkSubstituteRequirement = async () => {
+    if (!leaveData.fromDate || !leaveData.toDate) return false;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(
+        'http://localhost:5000/api/faculty/leave/check-substitute',
+        {
+          fromDate: leaveData.fromDate,
+          toDate: leaveData.toDate
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data.requiresSubstitute) {
+        setRequiresSubstitute(true);
+        setFacultyOnLeave(response.data.facultyOnLeave);
+        setShowSubstituteModal(true);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error checking substitute:', error);
+      return false;
+    }
+  };
+
+  const submitLeave = async () => {
     setLoading(true);
-    setMessage({ type: '', text: '' });
-
-    // Additional frontend validations
-    const hours = calculateHours();
-    const days = calculateDays();
-
-    // Check minimum hours for full day leaves (except permission leave)
-    if (leaveData.leaveType !== 'Permission Leave' && leaveData.fromDate === leaveData.toDate && hours > 0 && hours < 8) {
-      setMessage({ 
-        type: 'error', 
-        text: 'Minimum 8 hours required for full day leave. For shorter duration, please apply for Permission Leave.' 
-      });
-      setLoading(false);
-      return;
-    }
-
-    // Check maximum hours for permission leave
-    if (leaveData.leaveType === 'Permission Leave' && hours > 4) {
-      setMessage({ 
-        type: 'error', 
-        text: 'Permission Leave cannot exceed 4 hours (half day).' 
-      });
-      setLoading(false);
-      return;
-    }
-
-    // Check minimum hours for permission leave
-    if (leaveData.leaveType === 'Permission Leave' && hours < 1) {
-      setMessage({ 
-        type: 'error', 
-        text: 'Permission Leave must be at least 1 hour.' 
-      });
-      setLoading(false);
-      return;
-    }
-
-    // Check if medical certificate is provided for medical leave
-    if (leaveData.leaveType === 'Medical Leave' && !leaveData.document) {
-      setMessage({ 
-        type: 'error', 
-        text: 'Medical certificate is required for Medical Leave.' 
-      });
-      setLoading(false);
-      return;
-    }
-
-    // Check if night skill days are provided for compensation leave
-    if (leaveData.leaveType === 'Compensation Leave' && (!leaveData.nightSkillDays || leaveData.nightSkillDays < 3)) {
-      setMessage({ 
-        type: 'error', 
-        text: 'Minimum 3 night skill days required for compensation leave.' 
-      });
-      setLoading(false);
-      return;
-    }
-
+    
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
@@ -134,10 +129,11 @@ const LeaveApplication = ({ facultyData }) => {
       );
 
       if (response.data.success) {
-        setMessage({ 
-          type: 'success', 
-          text: 'Leave application submitted successfully! It will be reviewed by HOD.' 
-        });
+        let successMessage = 'Leave application submitted successfully!';
+        if (response.data.requiresSubstitute) {
+          successMessage += ` A substitute request has been sent to ${selectedSubstitute?.personalDetails?.name}.`;
+        }
+        setMessage({ type: 'success', text: successMessage });
         setLeaveData({
           leaveType: '',
           fromDate: '',
@@ -148,7 +144,11 @@ const LeaveApplication = ({ facultyData }) => {
           alternateFaculty: '',
           document: null,
           nightSkillDays: '',
+          substituteFacultyId: '',
+          substituteFacultyName: ''
         });
+        setSelectedSubstitute(null);
+        setShowSubstituteModal(false);
       }
     } catch (error) {
       setMessage({ 
@@ -160,11 +160,82 @@ const LeaveApplication = ({ facultyData }) => {
     }
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setMessage({ type: '', text: '' });
+
+    const hours = calculateHours();
+    const days = calculateDays();
+
+    if (leaveData.leaveType !== 'Permission Leave' && leaveData.fromDate === leaveData.toDate && hours > 0 && hours < 8) {
+      setMessage({ 
+        type: 'error', 
+        text: 'Minimum 8 hours required for full day leave. For shorter duration, please apply for Permission Leave.' 
+      });
+      return;
+    }
+
+    if (leaveData.leaveType === 'Permission Leave' && hours > 4) {
+      setMessage({ 
+        type: 'error', 
+        text: 'Permission Leave cannot exceed 4 hours (half day).' 
+      });
+      return;
+    }
+
+    if (leaveData.leaveType === 'Permission Leave' && hours < 1) {
+      setMessage({ 
+        type: 'error', 
+        text: 'Permission Leave must be at least 1 hour.' 
+      });
+      return;
+    }
+
+    if (leaveData.leaveType === 'Medical Leave' && !leaveData.document) {
+      setMessage({ 
+        type: 'error', 
+        text: 'Medical certificate is required for Medical Leave.' 
+      });
+      return;
+    }
+
+    if (leaveData.leaveType === 'Compensation Leave' && (!leaveData.nightSkillDays || leaveData.nightSkillDays < 3)) {
+      setMessage({ 
+        type: 'error', 
+        text: 'Minimum 3 night skill days required for compensation leave.' 
+      });
+      return;
+    }
+
+    // Check if substitute is required
+    const needsSubstitute = await checkSubstituteRequirement();
+    if (needsSubstitute) return;
+
+    await submitLeave();
+  };
+
+  const selectSubstitute = (faculty) => {
+    setSelectedSubstitute(faculty);
+    setLeaveData({
+      ...leaveData,
+      substituteFacultyId: faculty._id,
+      substituteFacultyName: faculty.personalDetails?.name
+    });
+  };
+
+  const confirmSubstituteAndSubmit = () => {
+    if (!selectedSubstitute) {
+      alert('Please select a substitute faculty member');
+      return;
+    }
+    setShowSubstituteModal(false);
+    submitLeave();
+  };
+
   const days = calculateDays();
   const hours = calculateHours();
   const isLeaveTypeSelected = leaveData.leaveType;
   
-  // Check leave balance
   let balanceCheck = null;
   if (isLeaveTypeSelected && facultyData?.leaveBalance) {
     if (leaveData.leaveType === 'Casual Leave') {
@@ -178,7 +249,6 @@ const LeaveApplication = ({ facultyData }) => {
     }
   }
 
-  // Get permission leaves available
   const permissionLeavesAvailable = facultyData?.leaveBalance?.permissionLeaves?.available || 2;
 
   return (
@@ -197,7 +267,6 @@ const LeaveApplication = ({ facultyData }) => {
 
       <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
-          {/* Leave Type */}
           <div>
             <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">
               Leave Type *
@@ -216,7 +285,6 @@ const LeaveApplication = ({ facultyData }) => {
             </select>
           </div>
 
-          {/* Number of Days / Hours */}
           <div>
             <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">
               {leaveData.leaveType === 'Permission Leave' ? 'Duration (Hours)' : 'Number of Days'}
@@ -235,7 +303,6 @@ const LeaveApplication = ({ facultyData }) => {
           </div>
         </div>
 
-        {/* Leave Balance Information */}
         {isLeaveTypeSelected && leaveData.leaveType !== 'Permission Leave' && balanceCheck !== null && (
           <div className="bg-blue-50 dark:bg-blue-900/20 p-2 sm:p-3 rounded-lg">
             <p className="text-xs sm:text-sm text-blue-700 dark:text-blue-300">
@@ -252,7 +319,6 @@ const LeaveApplication = ({ facultyData }) => {
           </div>
         )}
 
-        {/* Leave Balance Warning */}
         {balanceCheck !== null && days > balanceCheck && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 sm:p-4">
             <p className="text-xs sm:text-sm text-red-600 dark:text-red-400 font-medium">
@@ -261,7 +327,6 @@ const LeaveApplication = ({ facultyData }) => {
           </div>
         )}
 
-        {/* Date Selection */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <div>
             <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">
@@ -297,7 +362,6 @@ const LeaveApplication = ({ facultyData }) => {
           </div>
         </div>
 
-        {/* Time Selection */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
           <div>
             <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">
@@ -332,7 +396,6 @@ const LeaveApplication = ({ facultyData }) => {
           </div>
         </div>
 
-        {/* Hour Validation Warnings */}
         {leaveData.fromTime && leaveData.toTime && leaveData.leaveType && leaveData.leaveType !== 'Permission Leave' && leaveData.fromDate === leaveData.toDate && hours < 8 && hours > 0 && (
           <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 sm:p-4">
             <div className="flex items-start">
@@ -365,7 +428,6 @@ const LeaveApplication = ({ facultyData }) => {
           </div>
         )}
 
-        {/* Compensation Leave Field */}
         {leaveData.leaveType === 'Compensation Leave' && (
           <div>
             <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">
@@ -388,7 +450,6 @@ const LeaveApplication = ({ facultyData }) => {
           </div>
         )}
 
-        {/* Reason */}
         <div>
           <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">
             Reason for Leave *
@@ -408,7 +469,6 @@ const LeaveApplication = ({ facultyData }) => {
           />
         </div>
 
-        {/* Alternate Faculty */}
         <div>
           <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">
             Alternate Faculty (Optional)
@@ -423,7 +483,6 @@ const LeaveApplication = ({ facultyData }) => {
           />
         </div>
 
-        {/* Document Upload */}
         <div>
           <label className="block text-xs sm:text-sm font-medium text-gray-700 dark:text-gray-300 mb-1 sm:mb-2">
             <Upload className="inline-block mr-1 sm:mr-2" size={14} />
@@ -458,24 +517,6 @@ const LeaveApplication = ({ facultyData }) => {
           </div>
         </div>
 
-        {/* Time Conflict Warning */}
-        {leaveData.fromDate === leaveData.toDate && leaveData.fromTime && leaveData.toTime && (
-          <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3 sm:p-4">
-            <div className="flex items-start">
-              <AlertCircle className="text-yellow-600 dark:text-yellow-400 mt-0.5 mr-2 sm:mr-3 flex-shrink-0" size={16} />
-              <div>
-                <p className="font-medium text-xs sm:text-sm text-yellow-800 dark:text-yellow-300">
-                  Time Conflict Prevention
-                </p>
-                <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-1">
-                  System will check for overlapping leaves on the same day.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Submit Button */}
         <div className="pt-4 sm:pt-6 border-t border-gray-200 dark:border-gray-700">
           <button
             type="submit"
@@ -497,6 +538,87 @@ const LeaveApplication = ({ facultyData }) => {
           </p>
         </div>
       </form>
+
+      {/* Substitute Faculty Modal */}
+      {showSubstituteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                Substitute Faculty Required
+              </h3>
+              <button
+                onClick={() => setShowSubstituteModal(false)}
+                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg mb-4">
+              <p className="text-sm text-yellow-800 dark:text-yellow-300">
+                ⚠️ {facultyOnLeave} faculty members are already on leave during this period.
+              </p>
+              <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-1">
+                Please nominate a substitute faculty member to manage workload.
+              </p>
+            </div>
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Search for Faculty
+              </label>
+              <input
+                type="text"
+                value={substituteSearch}
+                onChange={(e) => setSubstituteSearch(e.target.value)}
+                placeholder="Search by name or department..."
+                className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600"
+              />
+            </div>
+            
+            <div className="max-h-60 overflow-y-auto space-y-2 mb-4">
+              {availableFaculty
+                .filter(f => f.personalDetails?.name?.toLowerCase().includes(substituteSearch.toLowerCase()) ||
+                           f.personalDetails?.department?.toLowerCase().includes(substituteSearch.toLowerCase()))
+                .map(faculty => (
+                  <div
+                    key={faculty._id}
+                    onClick={() => selectSubstitute(faculty)}
+                    className={`p-3 rounded-lg cursor-pointer transition ${
+                      selectedSubstitute?._id === faculty._id
+                        ? 'bg-blue-100 dark:bg-blue-900/30 border-2 border-blue-500'
+                        : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border border-transparent'
+                    }`}
+                  >
+                    <p className="font-medium text-gray-900 dark:text-white">
+                      {faculty.personalDetails?.name}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                      {faculty.personalDetails?.designation} | {faculty.personalDetails?.department}
+                    </p>
+                  </div>
+                ))}
+            </div>
+            
+            <div className="flex space-x-3">
+              <button
+                onClick={confirmSubstituteAndSubmit}
+                disabled={!selectedSubstitute}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition"
+              >
+                Submit with Substitute
+              </button>
+              <button
+                onClick={() => setShowSubstituteModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle, Clock, XCircle, AlertCircle, Download, Calendar, FileText, Trash2 } from 'lucide-react';
+import { CheckCircle, Clock, XCircle, AlertCircle, Download, Calendar, FileText, Trash2, UserPlus, X } from 'lucide-react';
 import axios from 'axios';
 
 const LeaveStatus = ({ facultyData }) => {
@@ -12,13 +12,20 @@ const LeaveStatus = ({ facultyData }) => {
     rejected: 0,
     cancelled: 0
   });
+  const [showSubstituteModal, setShowSubstituteModal] = useState(false);
+  const [selectedLeaveId, setSelectedLeaveId] = useState(null);
+  const [substituteSearch, setSubstituteSearch] = useState('');
+  const [availableFaculty, setAvailableFaculty] = useState([]);
+  const [pendingSubstituteRequests, setPendingSubstituteRequests] = useState([]);
 
   useEffect(() => {
     fetchLeaves();
+    fetchPendingSubstituteRequests();
+    fetchAvailableFaculty();
     
-    // Set up auto-refresh every 10 seconds
     const interval = setInterval(() => {
       fetchLeaves();
+      fetchPendingSubstituteRequests();
     }, 10000);
     
     return () => clearInterval(interval);
@@ -34,7 +41,6 @@ const LeaveStatus = ({ facultyData }) => {
       if (response.data.success) {
         setLeaves(response.data.leaves);
         
-        // Calculate statistics
         const total = response.data.leaves.length;
         const approved = response.data.leaves.filter(l => l.status === 'approved').length;
         const pending = response.data.leaves.filter(l => l.status === 'pending').length;
@@ -47,6 +53,32 @@ const LeaveStatus = ({ facultyData }) => {
       console.error('Error fetching leaves:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchPendingSubstituteRequests = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5000/api/faculty/pending-substitute-requests', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (response.data.success) {
+        setPendingSubstituteRequests(response.data.pendingRequests);
+      }
+    } catch (error) {
+      console.error('Error fetching pending substitute requests:', error);
+    }
+  };
+
+  const fetchAvailableFaculty = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5000/api/faculty/all-faculty', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setAvailableFaculty(response.data.faculty);
+    } catch (error) {
+      console.error('Error fetching faculty:', error);
     }
   };
 
@@ -67,11 +99,38 @@ const LeaveStatus = ({ facultyData }) => {
 
       if (response.data.success) {
         alert('Leave application cancelled successfully');
-        fetchLeaves(); // Refresh the list
+        fetchLeaves();
       }
     } catch (error) {
       console.error('Error cancelling leave:', error);
       alert(error.response?.data?.message || 'Failed to cancel leave');
+    }
+  };
+
+  const handleAddSubstitute = (leaveId) => {
+    setSelectedLeaveId(leaveId);
+    setShowSubstituteModal(true);
+  };
+
+  const confirmAddSubstitute = async (facultyId, facultyName, facultyDepartment) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.put(
+        `http://localhost:5000/api/faculty/leave/add-substitute/${selectedLeaveId}`,
+        { substituteId: facultyId, substituteName: facultyName },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      
+      if (response.data.success) {
+        alert('Substitute added successfully! They will receive a notification.');
+        setShowSubstituteModal(false);
+        setSelectedLeaveId(null);
+        fetchLeaves();
+        fetchPendingSubstituteRequests();
+      }
+    } catch (error) {
+      console.error('Error adding substitute:', error);
+      alert(error.response?.data?.message || 'Failed to add substitute');
     }
   };
 
@@ -125,6 +184,24 @@ const LeaveStatus = ({ facultyData }) => {
 
   return (
     <div className="w-full">
+      {/* Substitute Request Banner */}
+      {pendingSubstituteRequests.length > 0 && (
+        <div className="mb-4 p-3 sm:p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+          <div className="flex items-start">
+            <AlertCircle className="text-yellow-600 dark:text-yellow-400 mt-0.5 mr-3 flex-shrink-0" size={18} />
+            <div>
+              <p className="font-medium text-yellow-800 dark:text-yellow-300">
+                Substitute Faculty Required
+              </p>
+              <p className="text-sm text-yellow-700 dark:text-yellow-400 mt-1">
+                You have {pendingSubstituteRequests.length} pending leave application(s) that require a substitute faculty.
+                Please add a substitute using the <UserPlus size={14} className="inline" /> button next to the leave.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 sm:gap-0 mb-4 sm:mb-6">
         <h2 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white">Leave Application Status</h2>
         <button className="flex items-center space-x-2 px-3 sm:px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm sm:text-base transition">
@@ -133,7 +210,7 @@ const LeaveStatus = ({ facultyData }) => {
         </button>
       </div>
 
-      {/* Statistics Cards - Responsive grid */}
+      {/* Statistics Cards */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4 mb-6 sm:mb-8">
         <div className="bg-white dark:bg-gray-800 p-3 sm:p-4 rounded-lg shadow">
           <div className="text-lg sm:text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.total}</div>
@@ -157,7 +234,7 @@ const LeaveStatus = ({ facultyData }) => {
         </div>
       </div>
 
-      {/* Table - Responsive with horizontal scroll */}
+      {/* Table */}
       {leaves.length === 0 ? (
         <div className="text-center py-8 sm:py-10 bg-white dark:bg-gray-800 rounded-lg">
           <FileText className="mx-auto text-gray-400" size={32} />
@@ -168,62 +245,38 @@ const LeaveStatus = ({ facultyData }) => {
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                  S.No
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">S.No</th>
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <div className="flex items-center"><Calendar className="mr-1 sm:mr-2" size={12} />Leave Dates</div>
                 </th>
-                <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                  <div className="flex items-center">
-                    <Calendar className="mr-1 sm:mr-2" size={12} />
-                    Leave Dates
-                  </div>
-                </th>
-                <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                  Type
-                </th>
-                <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                  Duration
-                </th>
-                <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                  Status
-                </th>
-                <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                  Remarks
-                </th>
-                <th scope="col" className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
-                  Action
-                </th>
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Type</th>
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Duration</th>
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Status</th>
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Remarks</th>
+                <th className="px-3 sm:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">Action</th>
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
               {leaves.map((application, index) => (
                 <tr key={application._id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition">
-                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-white">
-                    {index + 1}
-                  </td>
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-900 dark:text-white">{index + 1}</td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                     <div className="text-xs sm:text-sm">
                       <div className="font-medium text-gray-900 dark:text-white">{formatDate(application.startDate)}</div>
                       <div className="text-gray-500 dark:text-gray-400">to {formatDate(application.endDate)}</div>
                       {application.fromTime && application.toTime && (
-                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                          {application.fromTime} - {application.toTime}
-                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">{application.fromTime} - {application.toTime}</div>
                       )}
                     </div>
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                     <span className={`px-2 py-0.5 sm:px-3 sm:py-1 text-xs rounded-full ${
-                      application.leaveType === 'Medical Leave' 
-                        ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                        : application.leaveType === 'Casual Leave'
-                        ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
-                        : application.leaveType === 'Permission Leave'
-                        ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
-                        : application.leaveType === 'Winter Leave'
-                        ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400'
-                        : application.leaveType === 'Summer Leave'
-                        ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
-                        : 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400'
+                      application.leaveType === 'Medical Leave' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                      application.leaveType === 'Casual Leave' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400' :
+                      application.leaveType === 'Permission Leave' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400' :
+                      application.leaveType === 'Winter Leave' ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400' :
+                      application.leaveType === 'Summer Leave' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400' :
+                      'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-400'
                     }`}>
                       {application.leaveType === 'Permission Leave' ? 'Permission' : 
                        application.leaveType === 'Medical Leave' ? 'Medical' :
@@ -233,11 +286,7 @@ const LeaveStatus = ({ facultyData }) => {
                     </span>
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                    {application.leaveType === 'Permission Leave' ? (
-                      <span>{application.hours}h</span>
-                    ) : (
-                      <span>{application.days}d</span>
-                    )}
+                    {application.leaveType === 'Permission Leave' ? <span>{application.hours}h</span> : <span>{application.days}d</span>}
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
                     <div className="flex items-center gap-1.5">
@@ -248,23 +297,32 @@ const LeaveStatus = ({ facultyData }) => {
                     </div>
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 text-xs sm:text-sm text-gray-600 dark:text-gray-400 max-w-[120px] sm:max-w-xs">
-                    <div className="truncate" title={application.reason}>
-                      {application.reason}
-                    </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                      {formatDate(application.appliedDate)}
-                    </div>
+                    <div className="truncate" title={application.reason}>{application.reason}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">{formatDate(application.appliedDate)}</div>
                   </td>
                   <td className="px-3 sm:px-6 py-3 sm:py-4 whitespace-nowrap">
-                    {application.status === 'pending' && (
-                      <button
-                        onClick={() => handleCancelLeave(application._id)}
-                        className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition"
-                        title="Cancel Leave"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
+                    <div className="flex items-center space-x-2">
+                      {application.status === 'pending' && (
+                        <>
+                          <button
+                            onClick={() => handleCancelLeave(application._id)}
+                            className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300 transition"
+                            title="Cancel Leave"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                          {application.requiresSubstitute && !application.substituteFacultyId && (
+                            <button
+                              onClick={() => handleAddSubstitute(application._id)}
+                              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition"
+                              title="Add Substitute"
+                            >
+                              <UserPlus size={16} />
+                            </button>
+                          )}
+                        </>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -273,45 +331,55 @@ const LeaveStatus = ({ facultyData }) => {
         </div>
       )}
 
-      {/* Additional Info Cards - Responsive */}
+      {/* Additional Info Cards */}
       <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
         <div className="bg-blue-50 dark:bg-blue-900/20 p-3 sm:p-4 rounded-lg">
-          <div className="flex items-center">
-            <CheckCircle className="text-blue-600 dark:text-blue-400 mr-2" size={16} />
-            <h4 className="font-medium text-xs sm:text-sm text-blue-800 dark:text-blue-300">Approval Process</h4>
-          </div>
+          <div className="flex items-center"><CheckCircle className="text-blue-600 dark:text-blue-400 mr-2" size={16} /><h4 className="font-medium text-xs sm:text-sm text-blue-800 dark:text-blue-300">Approval Process</h4></div>
           <p className="text-xs text-blue-700 dark:text-blue-400 mt-1 sm:mt-2">Faculty → HOD</p>
         </div>
         <div className="bg-green-50 dark:bg-green-900/20 p-3 sm:p-4 rounded-lg">
-          <div className="flex items-center">
-            <Clock className="text-green-600 dark:text-green-400 mr-2" size={16} />
-            <h4 className="font-medium text-xs sm:text-sm text-green-800 dark:text-green-300">Processing Time</h4>
-          </div>
+          <div className="flex items-center"><Clock className="text-green-600 dark:text-green-400 mr-2" size={16} /><h4 className="font-medium text-xs sm:text-sm text-green-800 dark:text-green-300">Processing Time</h4></div>
           <p className="text-xs text-green-700 dark:text-green-400 mt-1 sm:mt-2">1-2 days</p>
         </div>
         <div className="bg-purple-50 dark:bg-purple-900/20 p-3 sm:p-4 rounded-lg">
-          <div className="flex items-center">
-            <AlertCircle className="text-purple-600 dark:text-purple-400 mr-2" size={16} />
-            <h4 className="font-medium text-xs sm:text-sm text-purple-800 dark:text-purple-300">Important</h4>
-          </div>
+          <div className="flex items-center"><AlertCircle className="text-purple-600 dark:text-purple-400 mr-2" size={16} /><h4 className="font-medium text-xs sm:text-sm text-purple-800 dark:text-purple-300">Important</h4></div>
           <p className="text-xs text-purple-700 dark:text-purple-400 mt-1 sm:mt-2">Min 8h, Permission max 4h</p>
         </div>
       </div>
 
-      {/* Legend - Responsive */}
+      {/* Substitute Selection Modal */}
+      {showSubstituteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-md w-full p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white">Select Substitute Faculty</h3>
+              <button onClick={() => setShowSubstituteModal(false)} className="text-gray-500 hover:text-gray-700"><X size={20} /></button>
+            </div>
+            <div className="mb-4">
+              <input type="text" placeholder="Search by name or department..." value={substituteSearch} onChange={(e) => setSubstituteSearch(e.target.value)} className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700" />
+            </div>
+            <div className="max-h-60 overflow-y-auto space-y-2 mb-4">
+              {availableFaculty.filter(f => 
+                f.personalDetails?.name?.toLowerCase().includes(substituteSearch.toLowerCase()) ||
+                f.personalDetails?.department?.toLowerCase().includes(substituteSearch.toLowerCase())
+              ).map(faculty => (
+                <div key={faculty._id} onClick={() => confirmAddSubstitute(faculty._id, faculty.personalDetails?.name, faculty.personalDetails?.department)} className="p-3 rounded-lg cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition border border-gray-200 dark:border-gray-700">
+                  <p className="font-medium text-gray-900 dark:text-white">{faculty.personalDetails?.name}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400">{faculty.personalDetails?.designation} | {faculty.personalDetails?.department}</p>
+                </div>
+              ))}
+            </div>
+            <button onClick={() => setShowSubstituteModal(false)} className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {/* Legend */}
       <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-gray-200 dark:border-gray-700">
         <h4 className="font-medium text-xs sm:text-sm text-gray-800 dark:text-white mb-2 sm:mb-3">Status Legend</h4>
         <div className="flex flex-wrap gap-3 sm:gap-4">
-          {[
-            { color: 'bg-green-500', label: 'Approved' },
-            { color: 'bg-yellow-500', label: 'Pending' },
-            { color: 'bg-red-500', label: 'Rejected' },
-            { color: 'bg-gray-500', label: 'Cancelled' }
-          ].map((item, idx) => (
-            <div key={idx} className="flex items-center">
-              <div className={`w-2 h-2 sm:w-3 sm:h-3 ${item.color} rounded-full mr-1 sm:mr-2`}></div>
-              <span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">{item.label}</span>
-            </div>
+          {[{ color: 'bg-green-500', label: 'Approved' }, { color: 'bg-yellow-500', label: 'Pending' }, { color: 'bg-red-500', label: 'Rejected' }, { color: 'bg-gray-500', label: 'Cancelled' }].map((item, idx) => (
+            <div key={idx} className="flex items-center"><div className={`w-2 h-2 sm:w-3 sm:h-3 ${item.color} rounded-full mr-1 sm:mr-2`}></div><span className="text-xs sm:text-sm text-gray-700 dark:text-gray-300">{item.label}</span></div>
           ))}
         </div>
       </div>

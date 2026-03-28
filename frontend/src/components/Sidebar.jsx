@@ -10,8 +10,10 @@ import {
   LogOut,
   Moon,
   Sun,
-  Calendar
+  Calendar,
+  UserPlus
 } from 'lucide-react';
+import axios from 'axios';
 
 const Sidebar = ({
   activeTab,
@@ -25,6 +27,32 @@ const Sidebar = ({
 }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [substituteRequestCount, setSubstituteRequestCount] = useState(0);
+
+  // Fetch substitute request count for faculty
+  useEffect(() => {
+    if (userType === 'faculty') {
+      fetchSubstituteRequestCount();
+      // Refresh every 30 seconds
+      const interval = setInterval(fetchSubstituteRequestCount, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [userType]);
+
+  const fetchSubstituteRequestCount = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.get('http://localhost:5000/api/faculty/substitute-requests', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.data.success) {
+        setSubstituteRequestCount(response.data.requests.length);
+      }
+    } catch (error) {
+      console.error('Error fetching substitute request count:', error);
+    }
+  };
 
   // Handle window resize
   useEffect(() => {
@@ -67,9 +95,17 @@ const Sidebar = ({
       ];
     } else {
       return [
-        { id: 'details', label: 'Faculty Details', icon: User, mobileLabel: 'Details' },
-        { id: 'apply', label: 'Apply Leave', icon: FileText, mobileLabel: 'Apply' },
-        { id: 'status', label: 'Leave Status', icon: CheckCircle, mobileLabel: 'Status' }
+        { id: 'details', label: 'Faculty Details', icon: User, mobileLabel: 'Details', badge: null },
+        { id: 'apply', label: 'Apply Leave', icon: FileText, mobileLabel: 'Apply', badge: null },
+        { id: 'status', label: 'Leave Status', icon: CheckCircle, mobileLabel: 'Status', badge: null },
+        { 
+          id: 'substitute', 
+          label: 'Substitute Requests', 
+          icon: UserPlus, 
+          mobileLabel: 'Requests',
+          badge: substituteRequestCount,
+          badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+        }
       ];
     }
   };
@@ -79,6 +115,10 @@ const Sidebar = ({
   const handleTabClick = (tabId) => {
     onTabChange(tabId);
     setIsMobileMenuOpen(false);
+    // If clicking on substitute tab, refresh count
+    if (tabId === 'substitute') {
+      fetchSubstituteRequestCount();
+    }
   };
 
   const getDashboardTitle = () => {
@@ -162,8 +202,7 @@ const Sidebar = ({
           </div>
         </div>
 
-
-        {/* Sidebar Toggle Button - replaces user info section, desktop only */}
+        {/* Sidebar Toggle Button */}
         <div className="hidden lg:flex p-3 border-b border-gray-200 dark:border-gray-700 justify-center">
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
@@ -211,14 +250,14 @@ const Sidebar = ({
                       {tab.mobileLabel}
                     </span>
                     {tab.badge !== null && tab.badge > 0 && (
-                      <span className={`px-2 py-0.5 text-xs rounded-full ${tab.badgeColor}`}>
+                      <span className={`px-2 py-0.5 text-xs rounded-full ${tab.badgeColor || 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'}`}>
                         {tab.badge}
                       </span>
                     )}
                   </>
                 )}
                 {isCollapsed && tab.badge !== null && tab.badge > 0 && (
-                  <span className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 text-white text-[10px] flex items-center justify-center rounded-full">
+                  <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-blue-500 text-white text-[10px] flex items-center justify-center rounded-full px-1">
                     {tab.badge > 9 ? '9+' : tab.badge}
                   </span>
                 )}
@@ -226,8 +265,6 @@ const Sidebar = ({
             );
           })}
         </nav>
-
-
 
         {/* Bottom Actions */}
         <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">

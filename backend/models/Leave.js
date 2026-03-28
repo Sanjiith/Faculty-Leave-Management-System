@@ -44,10 +44,43 @@ const leaveSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
-  // For compensation leave
   nightSkillDays: {
     type: Number,
     default: 0
+  },
+  // Substitute Faculty Fields
+  requiresSubstitute: {
+    type: Boolean,
+    default: false
+  },
+  substituteFacultyId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+  substituteFacultyName: {
+    type: String,
+    default: null
+  },
+  substituteFacultyEmail: {
+    type: String,
+    default: null
+  },
+  substituteFacultyDepartment: {
+    type: String,
+    default: null
+  },
+  substituteConfirmed: {
+    type: Boolean,
+    default: false
+  },
+  substituteNotificationSent: {
+    type: Boolean,
+    default: false
+  },
+  substituteResponseDate: {
+    type: Date,
+    default: null
   },
   hodStatus: {
     type: String,
@@ -77,10 +110,9 @@ const leaveSchema = new mongoose.Schema({
       const date = new Date();
       const year = date.getFullYear();
       const month = date.getMonth();
-      // Academic year runs from April to March
-      if (month >= 3) { // April to December
+      if (month >= 3) {
         return `${year}-${year + 1}`;
-      } else { // January to March
+      } else {
         return `${year - 1}-${year}`;
       }
     }

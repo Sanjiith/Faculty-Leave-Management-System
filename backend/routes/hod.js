@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const Leave = require('../models/Leave');
+const Notification = require('../models/Notification');
 const { protect, hodOnly } = require('../middleware/auth');
 
 // @route   GET /api/hod/profile
@@ -9,7 +10,6 @@ router.get('/profile', protect, hodOnly, async (req, res) => {
   try {
     const hod = await User.findById(req.user._id).select('-password');
     
-    // Get statistics
     const pendingLeaves = await Leave.countDocuments({
       department: hod.hodOf,
       hodStatus: 'pending'
@@ -20,11 +20,8 @@ router.get('/profile', protect, hodOnly, async (req, res) => {
       'personalDetails.department': hod.hodOf
     });
 
-    // Get approved leaves for today (for workload warning)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
 
     const facultyOnLeaveToday = await Leave.countDocuments({
       department: hod.hodOf,
@@ -70,7 +67,6 @@ router.get('/pending-leaves', protect, hodOnly, async (req, res) => {
       hodStatus: 'pending'
     }).populate('faculty', 'personalDetails email');
 
-    // Get count of faculty already on leave for each date
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
@@ -86,7 +82,7 @@ router.get('/pending-leaves', protect, hodOnly, async (req, res) => {
       leaves,
       workload: {
         facultyOnLeaveToday,
-        maxAllowed: 2 // Maximum 2 faculty can be on leave at once
+        maxAllowed: 3
       }
     });
   } catch (error) {
@@ -99,78 +95,107 @@ router.get('/pending-leaves', protect, hodOnly, async (req, res) => {
 router.put('/approve-leave/:id', protect, hodOnly, async (req, res) => {
   try {
     const { status } = req.body;
-    
     const leave = await Leave.findById(req.params.id);
     
     if (!leave) {
       return res.status(404).json({ success: false, message: 'Leave not found' });
     }
 
-    // Check if leave belongs to HOD's department
     if (leave.department !== req.user.hodOf) {
       return res.status(403).json({ success: false, message: 'Not authorized' });
     }
 
-    // If approving, check workload
-    if (status === 'approved') {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
+    // Check substitute requirement at approval time
+    if (status === 'approved' && leave.leaveType !== 'Permission Leave') {
+      const from = new Date(leave.startDate);
+      const to = new Date(leave.endDate);
+      let maxFacultyOnLeave = 0;
+      let requiresSubstitute = false;
       
-      // Parse leave dates
-      const startDate = new Date(leave.startDate);
-      const endDate = new Date(leave.endDate);
-      
-      // Check each date in the leave range
-      let workloadWarning = false;
-      let conflictDates = [];
-      
-      for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
         const dateStr = d.toISOString().split('T')[0];
         
-        // Count approved leaves for this date (excluding current leave)
-        const facultyOnLeave = await Leave.countDocuments({
+        const count = await Leave.countDocuments({
           department: req.user.hodOf,
           status: 'approved',
-          _id: { $ne: leave._id }, // Exclude current leave
           startDate: { $lte: dateStr },
           endDate: { $gte: dateStr }
         });
         
-        if (facultyOnLeave >= 2) {
-          workloadWarning = true;
-          conflictDates.push(dateStr);
+        const totalWithThisLeave = count + 1;
+        if (totalWithThisLeave > maxFacultyOnLeave) maxFacultyOnLeave = totalWithThisLeave;
+        
+        if (totalWithThisLeave >= 4) {
+          requiresSubstitute = true;
         }
       }
       
-      if (workloadWarning) {
-        return res.status(400).json({
-          success: false,
-          workloadWarning: true,
-          message: `Warning: ${conflictDates.length > 1 ? 'On these dates' : 'On this date'} ${conflictDates.join(', ')}, 2 faculty members are already on leave. Approving this leave will make it 3. Do you still want to approve?`,
-          conflictDates
-        });
+      if (requiresSubstitute && !leave.substituteConfirmed) {
+        if (leave.substituteFacultyId) {
+          return res.status(400).json({
+            success: false,
+            requiresSubstitute: true,
+            message: `This leave would make ${maxFacultyOnLeave} faculty on leave. Please wait for substitute confirmation before approving.`,
+            waitingForSubstitute: true,
+            leaveId: leave._id
+          });
+        } else {
+          return res.status(400).json({
+            success: false,
+            requiresSubstitute: true,
+            message: `${maxFacultyOnLeave} faculty would be on leave. A request has been sent to the faculty to nominate a substitute.`,
+            leaveId: leave._id,
+            facultyId: leave.facultyId
+          });
+        }
       }
     }
 
-    // Update HOD status
+    // Check if substitute is already required and not confirmed
+    if (status === 'approved' && leave.requiresSubstitute && !leave.substituteConfirmed) {
+      return res.status(400).json({
+        success: false,
+        requiresSubstitute: true,
+        message: 'Substitute faculty confirmation is required before approving this leave.',
+        waitingForSubstitute: true,
+        leaveId: leave._id
+      });
+    }
+
     leave.hodStatus = status;
     
-    // Update the main status field based on HOD action
     if (status === 'approved') {
       leave.status = 'approved';
       leave.principalStatus = 'pending';
+      
+      const applicantNotification = new Notification({
+        userId: leave.facultyId,
+        type: 'leave_approved',
+        title: 'Leave Application Approved',
+        message: `Your ${leave.leaveType} application from ${leave.startDate} to ${leave.endDate} has been approved by HOD.`,
+        relatedLeaveId: leave._id
+      });
+      await applicantNotification.save();
+      
     } else if (status === 'rejected') {
       leave.status = 'rejected';
       leave.principalStatus = 'rejected';
+      
+      const applicantNotification = new Notification({
+        userId: leave.facultyId,
+        type: 'leave_rejected',
+        title: 'Leave Application Rejected',
+        message: `Your ${leave.leaveType} application from ${leave.startDate} to ${leave.endDate} has been rejected by HOD.`,
+        relatedLeaveId: leave._id
+      });
+      await applicantNotification.save();
     }
 
     await leave.save();
 
-    // If approved, update faculty's leave balance
     if (status === 'approved') {
       const faculty = await User.findById(leave.facultyId);
       
-      // Update leave balances based on type
       switch (leave.leaveType) {
         case 'Casual Leave':
           faculty.leaveBalance.casualLeave -= leave.days;
@@ -184,18 +209,10 @@ router.put('/approve-leave/:id', protect, hodOnly, async (req, res) => {
         case 'Winter Leave':
           faculty.leaveBalance.winterLeave -= leave.days;
           break;
-        case 'Permission Leave':
-          // Already counted when applying
-          break;
-        case 'Compensation Leave':
-          // Add night skill days tracking if needed
-          break;
       }
-      
       await faculty.save();
     }
 
-    // Return the updated leave with populated faculty data
     const updatedLeave = await Leave.findById(leave._id).populate('faculty', 'personalDetails email');
 
     res.json({
@@ -210,6 +227,100 @@ router.put('/approve-leave/:id', protect, hodOnly, async (req, res) => {
   }
 });
 
+// @route   PUT /api/hod/request-substitute/:leaveId
+router.put('/request-substitute/:leaveId', protect, hodOnly, async (req, res) => {
+  try {
+    const { facultyId } = req.body;
+    const leave = await Leave.findById(req.params.leaveId);
+    
+    if (!leave) {
+      return res.status(404).json({ success: false, message: 'Leave not found' });
+    }
+
+    if (leave.department !== req.user.hodOf) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    // Mark that substitute is required for this leave
+    leave.requiresSubstitute = true;
+    await leave.save();
+
+    // Send notification to faculty to nominate substitute
+    const facultyNotification = new Notification({
+      userId: facultyId,
+      type: 'substitute_request',
+      title: 'Substitute Faculty Required',
+      message: `Your leave from ${leave.startDate} to ${leave.endDate} requires a substitute faculty because 3 faculty members are already on leave. Please nominate a substitute in your Leave Status section.`,
+      relatedLeaveId: leave._id
+    });
+    await facultyNotification.save();
+
+    res.json({
+      success: true,
+      message: 'Substitute request sent to faculty',
+      leave
+    });
+
+  } catch (error) {
+    console.error('Error requesting substitute:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+// @route   PUT /api/hod/confirm-substitute/:leaveId
+router.put('/confirm-substitute/:leaveId', protect, hodOnly, async (req, res) => {
+  try {
+    const { confirmed } = req.body;
+    const leave = await Leave.findById(req.params.leaveId);
+    
+    if (!leave) {
+      return res.status(404).json({ success: false, message: 'Leave not found' });
+    }
+
+    if (leave.department !== req.user.hodOf) {
+      return res.status(403).json({ success: false, message: 'Not authorized' });
+    }
+
+    leave.substituteConfirmed = confirmed;
+    leave.substituteResponseDate = new Date();
+    
+    if (confirmed) {
+      if (leave.substituteFacultyId) {
+        const substituteNotification = new Notification({
+          userId: leave.substituteFacultyId,
+          type: 'substitute_confirm',
+          title: 'Substitute Confirmation',
+          message: `You have been confirmed as the substitute faculty for ${leave.faculty?.personalDetails?.name} during their leave from ${leave.startDate} to ${leave.endDate}. Please coordinate with the HOD.`,
+          relatedLeaveId: leave._id,
+          relatedUserId: leave.facultyId
+        });
+        await substituteNotification.save();
+      }
+      
+      const applicantNotification = new Notification({
+        userId: leave.facultyId,
+        type: 'substitute_assigned',
+        title: 'Substitute Confirmed',
+        message: `Your substitute faculty (${leave.substituteFacultyName}) has been confirmed by HOD.`,
+        relatedLeaveId: leave._id
+      });
+      await applicantNotification.save();
+    }
+    
+    await leave.save();
+
+    res.json({
+      success: true,
+      message: confirmed ? 'Substitute confirmed successfully' : 'Substitute rejected',
+      leave
+    });
+
+  } catch (error) {
+    console.error('Error confirming substitute:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 // @route   GET /api/hod/department-faculty
 router.get('/department-faculty', protect, hodOnly, async (req, res) => {
   try {
@@ -218,10 +329,7 @@ router.get('/department-faculty', protect, hodOnly, async (req, res) => {
       'personalDetails.department': req.user.hodOf
     }).select('-password');
 
-    res.json({
-      success: true,
-      faculty
-    });
+    res.json({ success: true, faculty });
   } catch (error) {
     console.error('Error fetching department faculty:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -239,10 +347,7 @@ router.get('/approval-history', protect, hodOnly, async (req, res) => {
     .sort({ appliedDate: -1 })
     .limit(50);
 
-    res.json({
-      success: true,
-      leaves
-    });
+    res.json({ success: true, leaves });
   } catch (error) {
     console.error('Error fetching approval history:', error);
     res.status(500).json({ success: false, message: 'Server error' });
@@ -255,7 +360,6 @@ router.get('/workload-status', protect, hodOnly, async (req, res) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    // Get faculty on leave today
     const facultyOnLeaveToday = await Leave.countDocuments({
       department: req.user.hodOf,
       status: 'approved',
@@ -263,7 +367,6 @@ router.get('/workload-status', protect, hodOnly, async (req, res) => {
       endDate: { $gte: today.toISOString().split('T')[0] }
     });
 
-    // Get detailed list of faculty on leave
     const facultyOnLeave = await Leave.find({
       department: req.user.hodOf,
       status: 'approved',
@@ -275,7 +378,7 @@ router.get('/workload-status', protect, hodOnly, async (req, res) => {
       success: true,
       workload: {
         facultyOnLeaveToday,
-        maxAllowed: 2,
+        maxAllowed: 3,
         facultyOnLeave: facultyOnLeave.map(l => ({
           name: l.faculty?.personalDetails?.name,
           leaveType: l.leaveType,
