@@ -15,7 +15,8 @@ const app = express();
 connectDB();
 
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: ['http://localhost:5173',
+  'https://faculty-leave-management-system-two.vercel.app'],
   credentials: true
 }));
 app.use(express.json());
