@@ -51,7 +51,9 @@ const SubstituteRequests = () => {
         if (accept) {
           alert('✅ You have accepted the substitute request! The HOD will be notified.');
         } else {
-          alert('❌ You have declined the substitute request. The applicant will be notified to find another substitute.');
+          alert('❌ You have declined the substitute request. The applicant will be notified and can select another substitute.');
+          // Dispatch event to refresh the faculty's leave status page
+          window.dispatchEvent(new CustomEvent('refreshLeaveStatus', {}));
         }
         fetchSubstituteRequests(); // Refresh the list
       }
@@ -176,7 +178,7 @@ const SubstituteRequests = () => {
               </div>
 
               <div className="mt-3 text-xs text-gray-500 dark:text-gray-400 text-center">
-                <p>⚠️ If you decline, the applicant will need to find another substitute faculty.</p>
+                <p>⚠️ If you decline, the applicant will be notified to find another substitute.</p>
               </div>
             </div>
           ))}

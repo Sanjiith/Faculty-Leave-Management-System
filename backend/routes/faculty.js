@@ -526,42 +526,82 @@ router.put('/substitute-respond/:leaveId', protect, facultyOnly, async (req, res
       return res.status(400).json({ success: false, message: 'This leave request is no longer pending' });
     }
 
-    leave.substituteConfirmed = accept;
-    leave.substituteResponseDate = new Date();
-    await leave.save();
+    if (accept) {
+      // If accepting, mark as confirmed
+      leave.substituteConfirmed = true;
+      await leave.save();
 
-    const applicantNotification = new Notification({
-      userId: leave.facultyId,
-      type: accept ? 'substitute_confirm' : 'substitute_reject',
-      title: accept ? 'Substitute Confirmed' : 'Substitute Declined',
-      message: accept
-        ? `${req.user.personalDetails?.name} has accepted to be your substitute during your leave from ${leave.startDate} to ${leave.endDate}.`
-        : `${req.user.personalDetails?.name} has declined to be your substitute. Please nominate another faculty member.`,
-      relatedLeaveId: leave._id,
-      relatedUserId: req.user._id
-    });
-    await applicantNotification.save();
-
-    const hod = await User.findOne({ role: 'hod', hodOf: leave.department });
-    if (hod) {
-      const hodNotification = new Notification({
-        userId: hod._id,
-        type: accept ? 'substitute_confirm' : 'substitute_reject',
-        title: accept ? 'Substitute Confirmed' : 'Substitute Declined',
-        message: accept
-          ? `${req.user.personalDetails?.name} has accepted to be substitute for ${leave.faculty?.personalDetails?.name}'s leave.`
-          : `${req.user.personalDetails?.name} has declined substitute request for ${leave.faculty?.personalDetails?.name}.`,
+      // Send acceptance notification to applicant
+      const applicantNotification = new Notification({
+        userId: leave.facultyId,
+        type: 'substitute_confirm',
+        title: 'Substitute Confirmed',
+        message: `${req.user.personalDetails?.name} has accepted to be your substitute during your leave from ${leave.startDate} to ${leave.endDate}.`,
         relatedLeaveId: leave._id,
         relatedUserId: req.user._id
       });
-      await hodNotification.save();
-    }
+      await applicantNotification.save();
 
-    res.json({
-      success: true,
-      message: accept ? 'Substitute request accepted!' : 'Substitute request declined.',
-      leave
-    });
+      // Send notification to HOD
+      const hod = await User.findOne({ role: 'hod', hodOf: leave.department });
+      if (hod) {
+        const hodNotification = new Notification({
+          userId: hod._id,
+          type: 'substitute_confirm',
+          title: 'Substitute Confirmed',
+          message: `${req.user.personalDetails?.name} has accepted to be substitute for ${leave.faculty?.personalDetails?.name}'s leave.`,
+          relatedLeaveId: leave._id,
+          relatedUserId: req.user._id
+        });
+        await hodNotification.save();
+      }
+
+      res.json({
+        success: true,
+        message: 'Substitute request accepted!',
+        leave
+      });
+    } else {
+      // If declining, reset substitute fields so faculty can choose another substitute
+      leave.substituteFacultyId = null;
+      leave.substituteFacultyName = null;
+      leave.substituteFacultyEmail = null;
+      leave.substituteFacultyDepartment = null;
+      leave.substituteConfirmed = false;
+      leave.requiresSubstitute = true; // Keep requiresSubstitute true since still needed
+      await leave.save();
+
+      // Send decline notification to applicant with link to add new substitute
+      const applicantNotification = new Notification({
+        userId: leave.facultyId,
+        type: 'substitute_request',
+        title: 'Substitute Declined - Action Required',
+        message: `${req.user.personalDetails?.name} has declined to be your substitute. Please go to Leave Status section and select another substitute faculty member for your leave from ${leave.startDate} to ${leave.endDate}.`,
+        relatedLeaveId: leave._id,
+        relatedUserId: req.user._id
+      });
+      await applicantNotification.save();
+
+      // Send notification to HOD about decline
+      const hod = await User.findOne({ role: 'hod', hodOf: leave.department });
+      if (hod) {
+        const hodNotification = new Notification({
+          userId: hod._id,
+          type: 'substitute_request',
+          title: 'Substitute Declined',
+          message: `${req.user.personalDetails?.name} has declined substitute request for ${leave.faculty?.personalDetails?.name}'s leave. ${leave.faculty?.personalDetails?.name} needs to select another substitute.`,
+          relatedLeaveId: leave._id,
+          relatedUserId: req.user._id
+        });
+        await hodNotification.save();
+      }
+
+      res.json({
+        success: true,
+        message: 'Substitute request declined. The applicant can now select another substitute.',
+        leave
+      });
+    }
 
   } catch (error) {
     console.error('Error responding to substitute request:', error);
@@ -598,6 +638,7 @@ router.put('/leave/add-substitute/:leaveId', protect, facultyOnly, async (req, r
     leave.substituteFacultyEmail = substitute.email;
     leave.substituteFacultyDepartment = substitute.personalDetails?.department;
     leave.requiresSubstitute = true;
+    leave.substituteConfirmed = false;
     await leave.save();
 
     const notification = new Notification({

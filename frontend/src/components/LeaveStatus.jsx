@@ -23,12 +23,23 @@ const LeaveStatus = ({ facultyData }) => {
     fetchPendingSubstituteRequests();
     fetchAvailableFaculty();
     
+    // Listen for refresh events from substitute decline
+    const handleRefresh = () => {
+      fetchLeaves();
+      fetchPendingSubstituteRequests();
+    };
+    
+    window.addEventListener('refreshLeaveStatus', handleRefresh);
+    
     const interval = setInterval(() => {
       fetchLeaves();
       fetchPendingSubstituteRequests();
     }, 10000);
     
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('refreshLeaveStatus', handleRefresh);
+    };
   }, []);
 
   const fetchLeaves = async () => {
@@ -100,6 +111,7 @@ const LeaveStatus = ({ facultyData }) => {
       if (response.data.success) {
         alert('Leave application cancelled successfully');
         fetchLeaves();
+        fetchPendingSubstituteRequests();
       }
     } catch (error) {
       console.error('Error cancelling leave:', error);
@@ -356,18 +368,30 @@ const LeaveStatus = ({ facultyData }) => {
               <button onClick={() => setShowSubstituteModal(false)} className="text-gray-500 hover:text-gray-700"><X size={20} /></button>
             </div>
             <div className="mb-4">
-              <input type="text" placeholder="Search by name or department..." value={substituteSearch} onChange={(e) => setSubstituteSearch(e.target.value)} className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700" />
+              <input 
+                type="text" 
+                placeholder="Search by name or department..." 
+                value={substituteSearch} 
+                onChange={(e) => setSubstituteSearch(e.target.value)} 
+                className="w-full px-4 py-2 border rounded-lg dark:bg-gray-700 dark:border-gray-600" 
+              />
             </div>
             <div className="max-h-60 overflow-y-auto space-y-2 mb-4">
-              {availableFaculty.filter(f => 
-                f.personalDetails?.name?.toLowerCase().includes(substituteSearch.toLowerCase()) ||
-                f.personalDetails?.department?.toLowerCase().includes(substituteSearch.toLowerCase())
-              ).map(faculty => (
-                <div key={faculty._id} onClick={() => confirmAddSubstitute(faculty._id, faculty.personalDetails?.name, faculty.personalDetails?.department)} className="p-3 rounded-lg cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition border border-gray-200 dark:border-gray-700">
-                  <p className="font-medium text-gray-900 dark:text-white">{faculty.personalDetails?.name}</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">{faculty.personalDetails?.designation} | {faculty.personalDetails?.department}</p>
-                </div>
-              ))}
+              {availableFaculty
+                .filter(f => 
+                  f.personalDetails?.name?.toLowerCase().includes(substituteSearch.toLowerCase()) ||
+                  f.personalDetails?.department?.toLowerCase().includes(substituteSearch.toLowerCase())
+                )
+                .map(faculty => (
+                  <div 
+                    key={faculty._id} 
+                    onClick={() => confirmAddSubstitute(faculty._id, faculty.personalDetails?.name, faculty.personalDetails?.department)} 
+                    className="p-3 rounded-lg cursor-pointer hover:bg-blue-50 dark:hover:bg-blue-900/20 transition border border-gray-200 dark:border-gray-700"
+                  >
+                    <p className="font-medium text-gray-900 dark:text-white">{faculty.personalDetails?.name}</p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400">{faculty.personalDetails?.designation} | {faculty.personalDetails?.department}</p>
+                  </div>
+                ))}
             </div>
             <button onClick={() => setShowSubstituteModal(false)} className="w-full px-4 py-2 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition">Cancel</button>
           </div>
