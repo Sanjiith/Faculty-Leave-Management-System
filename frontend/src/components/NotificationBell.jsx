@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, CheckCircle, XCircle, UserPlus, Check } from 'lucide-react';
 import axios from 'axios';
+import { API_BASE_URL } from '../utils/api';
 
 const NotificationBell = ({ userType }) => {
   const [notifications, setNotifications] = useState([]);
@@ -16,7 +17,7 @@ const NotificationBell = ({ userType }) => {
   const fetchNotifications = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/notifications', {
+      const response = await axios.get(`${API_BASE_URL}/notifications`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
@@ -30,7 +31,7 @@ const NotificationBell = ({ userType }) => {
   const markAsRead = async (id) => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`http://localhost:5000/api/notifications/${id}/read`, {}, {
+      await axios.put(`${API_BASE_URL}/notifications/${id}/read`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchNotifications();
@@ -42,7 +43,7 @@ const NotificationBell = ({ userType }) => {
   const markAllAsRead = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axios.put('http://localhost:5000/api/notifications/read-all', {}, {
+      await axios.put(`${API_BASE_URL}/notifications/read-all`, {}, {
         headers: { Authorization: `Bearer ${token}` }
       });
       fetchNotifications();

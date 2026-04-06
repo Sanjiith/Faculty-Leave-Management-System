@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Users, Mail, Phone } from 'lucide-react';
+import { API_BASE_URL } from '../utils/api';
 
 const DepartmentFaculty = ({ hodDepartment }) => {
 
@@ -16,7 +17,7 @@ const DepartmentFaculty = ({ hodDepartment }) => {
       const token = localStorage.getItem('token');
 
       const response = await axios.get(
-        'http://localhost:5000/api/hod/department-faculty',
+        `${API_BASE_URL}/hod/department-faculty`,
         {
           headers: { Authorization: `Bearer ${token}` }
         }

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { CheckCircle, XCircle, Clock, AlertTriangle, UserPlus, Check } from 'lucide-react';
+import { API_BASE_URL } from '../utils/api';
 
 const PendingApprovals = ({ hodDepartment, onLeaveAction }) => {
 
@@ -20,7 +21,7 @@ const PendingApprovals = ({ hodDepartment, onLeaveAction }) => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.get(
-        'http://localhost:5000/api/hod/pending-leaves',
+        `${API_BASE_URL}/hod/pending-leaves`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -41,7 +42,7 @@ const PendingApprovals = ({ hodDepartment, onLeaveAction }) => {
       const leave = pendingLeaves.find(l => l._id === leaveId);
       
       const response = await axios.put(
-        `http://localhost:5000/api/hod/approve-leave/${leaveId}`,
+        `${API_BASE_URL}/hod/approve-leave/${leaveId}`,
         { status },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -82,7 +83,7 @@ const PendingApprovals = ({ hodDepartment, onLeaveAction }) => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.put(
-        `http://localhost:5000/api/hod/request-substitute/${requestingLeave.leaveId}`,
+        `${API_BASE_URL}/hod/request-substitute/${requestingLeave.leaveId}`,
         { facultyId: requestingLeave.facultyId },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -106,7 +107,7 @@ const PendingApprovals = ({ hodDepartment, onLeaveAction }) => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.put(
-        `http://localhost:5000/api/hod/confirm-substitute/${leaveId}`,
+        `${API_BASE_URL}/hod/confirm-substitute/${leaveId}`,
         { confirmed },
         { headers: { Authorization: `Bearer ${token}` } }
       );

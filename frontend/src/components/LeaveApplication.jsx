@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Clock, AlertCircle, Upload, UserPlus, X } from 'lucide-react';
 import axios from 'axios';
+import { API_BASE_URL } from '../utils/api';
 
 const LeaveApplication = ({ facultyData }) => {
   const [leaveData, setLeaveData] = useState({
@@ -43,7 +44,7 @@ const LeaveApplication = ({ facultyData }) => {
   const fetchAvailableFaculty = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/faculty/all-faculty', {
+      const response = await axios.get(`${API_BASE_URL}/faculty/all-faculty`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAvailableFaculty(response.data.faculty);
@@ -91,7 +92,7 @@ const LeaveApplication = ({ facultyData }) => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        'http://localhost:5000/api/faculty/leave/check-substitute',
+        `${API_BASE_URL}/faculty/leave/check-substitute`,
         {
           fromDate: leaveData.fromDate,
           toDate: leaveData.toDate
@@ -118,7 +119,7 @@ const LeaveApplication = ({ facultyData }) => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(
-        'http://localhost:5000/api/faculty/leave/apply',
+        `${API_BASE_URL}/faculty/leave/apply`,
         leaveData,
         {
           headers: {

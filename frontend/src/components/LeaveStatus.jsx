@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, Clock, XCircle, AlertCircle, Download, Calendar, FileText, Trash2, UserPlus, X } from 'lucide-react';
 import axios from 'axios';
+import { API_BASE_URL } from '../utils/api';
 
 const LeaveStatus = ({ facultyData }) => {
   const [leaves, setLeaves] = useState([]);
@@ -45,7 +46,7 @@ const LeaveStatus = ({ facultyData }) => {
   const fetchLeaves = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/faculty/leaves', {
+      const response = await axios.get(`${API_BASE_URL}/faculty/leaves`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -70,7 +71,7 @@ const LeaveStatus = ({ facultyData }) => {
   const fetchPendingSubstituteRequests = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/faculty/pending-substitute-requests', {
+      const response = await axios.get(`${API_BASE_URL}/faculty/pending-substitute-requests`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.data.success) {
@@ -84,7 +85,7 @@ const LeaveStatus = ({ facultyData }) => {
   const fetchAvailableFaculty = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/faculty/all-faculty', {
+      const response = await axios.get(`${API_BASE_URL}/faculty/all-faculty`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setAvailableFaculty(response.data.faculty);
@@ -101,7 +102,7 @@ const LeaveStatus = ({ facultyData }) => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.put(
-        `http://localhost:5000/api/faculty/leave/cancel/${leaveId}`,
+        `${API_BASE_URL}/faculty/leave/cancel/${leaveId}`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` }
@@ -128,7 +129,7 @@ const LeaveStatus = ({ facultyData }) => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.put(
-        `http://localhost:5000/api/faculty/leave/add-substitute/${selectedLeaveId}`,
+        `${API_BASE_URL}/faculty/leave/add-substitute/${selectedLeaveId}`,
         { substituteId: facultyId, substituteName: facultyName },
         { headers: { Authorization: `Bearer ${token}` } }
       );

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FcGoogle } from 'react-icons/fc';
 import { Eye, EyeOff } from 'lucide-react';
 import axios from 'axios';
+import { API_BASE_URL } from '../utils/api';
 
 const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
@@ -24,7 +25,7 @@ const Login = ({ onLogin }) => {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5000/api/auth/login', {
+      const response = await axios.post(`${API_BASE_URL}/auth/login`, {
         email,
         password
       });

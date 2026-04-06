@@ -18,6 +18,7 @@ import DepartmentFaculty from './hod/DepartmentFaculty';
 import ApprovalHistory from './hod/ApprovalHistory';
 import Sidebar from './Sidebar';
 import NotificationBell from './NotificationBell';
+import { API_BASE_URL } from '../utils/api';
 
 const HODDashboard = ({ onLogout, user }) => {
   const [activeTab, setActiveTab] = useState('pending');
@@ -58,7 +59,7 @@ const HODDashboard = ({ onLogout, user }) => {
   const fetchHODData = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/hod/profile', {
+      const response = await axios.get(`${API_BASE_URL}/hod/profile`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 

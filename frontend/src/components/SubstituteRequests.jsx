@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { CheckCircle, XCircle, Clock, UserPlus, Mail, Calendar, RefreshCw } from 'lucide-react';
 import axios from 'axios';
+import { API_BASE_URL } from '../utils/api';
+
 
 const SubstituteRequests = () => {
   const [requests, setRequests] = useState([]);
@@ -20,7 +22,7 @@ const SubstituteRequests = () => {
   const fetchSubstituteRequests = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/faculty/substitute-requests', {
+      const response = await axios.get(`${API_BASE_URL}/faculty/substitute-requests`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -40,7 +42,7 @@ const SubstituteRequests = () => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.put(
-        `http://localhost:5000/api/faculty/substitute-respond/${requestId}`,
+        `${API_BASE_URL}/faculty/substitute-respond/${requestId}`,
         { accept },
         {
           headers: { Authorization: `Bearer ${token}` }

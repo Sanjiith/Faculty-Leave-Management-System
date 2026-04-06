@@ -3,6 +3,7 @@ import axios from 'axios';
 import HODDashboard from './HODDashboard';
 import Sidebar from './Sidebar';
 import NotificationBell from './NotificationBell';
+import { API_BASE_URL } from '../utils/api';
 
 // Faculty imports
 import {
@@ -53,7 +54,7 @@ const Dashboard = ({ onLogout }) => {
 
     axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
 
-    axios.get('http://localhost:5000/api/auth/me')
+    axios.get(`${API_BASE_URL}/auth/me`)
       .then(res => {
         if (res.data.success) {
           setUser(res.data.user);

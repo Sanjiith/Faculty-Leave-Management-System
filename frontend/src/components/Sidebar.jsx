@@ -14,6 +14,7 @@ import {
   UserPlus
 } from 'lucide-react';
 import axios from 'axios';
+import { API_BASE_URL } from '../utils/api';
 
 const Sidebar = ({
   activeTab,
@@ -42,7 +43,7 @@ const Sidebar = ({
   const fetchSubstituteRequestCount = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await axios.get('http://localhost:5000/api/faculty/substitute-requests', {
+      const response = await axios.get(`${API_BASE_URL}/faculty/substitute-requests`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
