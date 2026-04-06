@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Users, Mail, Phone } from 'lucide-react';
-import { API_BASE_URL } from '../utils/api';
+import { API_BASE_URL } from '../../utils/api';
 
 const DepartmentFaculty = ({ hodDepartment }) => {
 
