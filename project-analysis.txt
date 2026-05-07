@@ -1,0 +1,181 @@
+# Faculty Leave Management System - Comprehensive Analysis
+
+## Project Overview
+
+Faculty Leave Management System is a full-stack academic leave tracking application built with a React frontend and a Node.js/Express backend using MongoDB. It supports two main roles: **faculty** and **HOD**. Faculty can apply for leaves, manage substitute faculty requirements, view leave status, and receive notifications. HOD users can review and approve leave requests, confirm substitute assignments, and monitor department workload.
+
+**Tech Stack:**
+- **Backend:** Node.js, Express, MongoDB, Mongoose, JWT, bcryptjs, dotenv, cors, express-validator
+- **Frontend:** React, Vite, Tailwind CSS, axios, lucide-react, react-icons
+- **Development:** nodemon, ESLint
+
+## Backend Architecture
+
+### Database Models
+
+1. **User** (`backend/models/User.js`)
+   - Stores authentication and profile data for faculty and HOD users
+   - Fields include `email`, `password`, `role`, `staffId`, `personalDetails`, `leaveBalance`, `hodOf`, `isActive`, `createdAt`
+   - `personalDetails` contains name, designation, department, date of joining, experience, phone, office room, qualifications, research areas, and gender
+   - `leaveBalance` tracks casual, medical, summer, winter, and permission leaves
+   - Includes password hashing, password comparison, and monthly permission leave reset logic
+
+2. **Leave** (`backend/models/Leave.js`)
+   - Captures leave application data and approval workflow state
+   - Fields include faculty references, leave type, start/end dates, from/to times, reason, alternate faculty, document details, days/hours, night skill days, substitute faculty fields, substitute confirmation state, HOD/principal statuses, status, remarks, department, and academic year
+   - Supports leave types: Casual Leave, Medical Leave, Maternity Leave, Winter Leave, Summer Leave, Permission Leave, Compensation Leave
+   - Tracks whether a substitute is required and whether it has been confirmed
+
+3. **Notification** (`backend/models/Notification.js`)
+   - Records notifications for users
+   - Fields include `userId`, `type`, `title`, `message`, `relatedLeaveId`, `relatedUserId`, `isRead`, `createdAt`
+   - Notification types include substitute_request, substitute_confirm, leave_approved, leave_rejected, workload_alert, substitute_assigned
+
+### API Routes
+
+#### Auth Routes (`backend/routes/auth.js`)
+- `POST /api/auth/login` - authenticate users and issue a JWT token
+- `GET /api/auth/me` - validate token and return the logged-in user profile
+
+#### Faculty Routes (`backend/routes/faculty.js`)
+- `GET /api/faculty/profile` - fetch faculty profile and refresh permission leaves
+- `GET /api/faculty/all-faculty` - list active faculty for substitute selection
+- `POST /api/faculty/leave/check-substitute` - determine substitute need based on department leave load
+- `POST /api/faculty/leave/apply` - submit leave applications with validation and notification creation
+- `PUT /api/faculty/leave/cancel/:id` - cancel pending leave applications and refund permission leave if relevant
+- `PUT /api/faculty/leave/add-substitute/:leaveId` - add/nominate substitute faculty to a pending leave
+- `GET /api/faculty/leaves` - retrieve the current faculty user's leave history
+- `GET /api/faculty/leave-balance` - return current leave balances, including available permission leaves
+- `POST /api/faculty/compensation/calculate` - calculate compensation leave eligibility based on night skill days
+- `GET /api/faculty/substitute-requests` - list substitute requests assigned to the current faculty
+- `PUT /api/faculty/substitute-respond/:leaveId` - accept or decline substitute requests
+- `GET /api/faculty/pending-substitute-requests` - list pending leave applications requiring substitute nomination
+
+#### HOD Routes (`backend/routes/hod.js`)
+- `GET /api/hod/profile` - fetch HOD profile and department statistics
+- `GET /api/hod/pending-leaves` - list pending department leave requests
+- `PUT /api/hod/approve-leave/:id` - approve or reject leave applications with workload and substitute checks
+- `PUT /api/hod/request-substitute/:leaveId` - request faculty to nominate substitute faculty
+- `PUT /api/hod/confirm-substitute/:leaveId` - confirm or reject nominated substitute faculty
+- `GET /api/hod/department-faculty` - retrieve faculty list for the HOD's department
+- `GET /api/hod/approval-history` - retrieve approved/rejected leave history
+- `GET /api/hod/workload-status` - fetch current workload and faculty on leave today
+
+#### Notification Routes (`backend/routes/notification.js`)
+- `GET /api/notifications` - fetch notifications for the signed-in user
+- `PUT /api/notifications/:id/read` - mark a notification as read
+- `PUT /api/notifications/read-all` - mark all notifications as read
+
+### Middleware
+
+- `protect` - verifies JWT Bearer tokens, loads the authenticated user, and rejects unauthorized requests
+- `hodOnly` - restricts routes to HOD users
+- `facultyOnly` - restricts routes to faculty users
+
+### Server and Database Setup
+
+- `backend/config/database.js` connects to MongoDB via `process.env.MONGODB_URI`
+- `backend/server.js` initializes Express, applies CORS, parses JSON and URL-encoded bodies, and mounts API routes
+- CORS configuration allows `http://localhost:5173` and `https://faculty-leave-management-system-two.vercel.app`
+- Includes a health endpoint and global error/404 handlers
+
+### Seed Script
+
+- `backend/seed.js` creates initial demo data including HOD users and 50 faculty users
+- Seeds department-specific HOD accounts and faculty accounts with leave balances
+- Outputs sample credentials and confirms seeded data
+
+## Frontend Architecture
+
+### App Entry
+
+- `frontend/src/App.jsx` checks local storage for a token, authenticates with `GET /api/auth/me`, and conditionally renders the login page or dashboard
+- Maintains loading state during authentication and preserves theme preference across sessions
+
+### Shared Utilities
+
+- `frontend/src/utils/api.js` sets up axios with a base URL from `VITE_API_BASE_URL` or `http://localhost:5000/api`
+- Automatically attaches the JWT token to requests
+- `frontend/src/utils/constants.js` defines app titles, demo emails, and navigation tab configuration
+
+### Login Interface
+
+- `frontend/src/components/Login.jsx` handles user login with email and password
+- Displays loading state and error messages
+- Includes a demo credential quick login button
+
+### Faculty Experience
+
+- `frontend/src/components/Dashboard.jsx` renders the faculty dashboard and manages tabs for details, leave application, leave status, and substitute requests
+- Uses `frontend/src/components/Sidebar.jsx` for responsive navigation and `frontend/src/components/NotificationBell.jsx` for in-app notifications
+
+- `frontend/src/components/FacultyDetails.jsx` displays faculty profile details, contact information, qualifications, research areas, and leave balance summary
+
+- `frontend/src/components/LeaveApplication.jsx` enables leave application submission with:
+  - leave type selection and date/time inputs
+  - alternate faculty note
+  - medical document requirements for medical leave
+  - substitute faculty selection when required
+  - validation for leave types, seasonal restrictions, permission leave hours, maternity and compensation rules
+  - notification behavior when substitute action is required
+
+- `frontend/src/components/LeaveStatus.jsx` provides:
+  - leave history with status labels
+  - statistics for total, approved, pending, rejected, and cancelled leaves
+  - cancel pending applications
+  - add substitute faculty to pending leave applications
+  - refresh of leave status data
+
+- `frontend/src/components/SubstituteRequests.jsx` allows substitute faculty to:
+  - view assigned substitute requests
+  - accept or decline requests
+  - trigger applicant notification and status updates
+
+### HOD Experience
+
+- `frontend/src/components/HODDashboard.jsx` is the HOD dashboard shell with department statistics and tabs for pending approvals, department faculty, and approval history
+- `frontend/src/components/hod/PendingApprovals.jsx` allows HODs to:
+  - review pending leave applications
+  - approve or reject leaves
+  - detect substitute requirement issues during approval
+  - request substitute nominations from faculty
+  - confirm or reject substitute faculty once nominated
+
+- `frontend/src/components/hod/DepartmentFaculty.jsx` lists faculty in the HOD's department with contact details and active status
+- `frontend/src/components/hod/ApprovalHistory.jsx` shows past approved and rejected leave records with date range and status information
+
+### UI / UX Features
+
+- Responsive Tailwind CSS layout for desktop and mobile
+- Dark mode toggle with persistence
+- Collapsible sidebar and mobile menu overlay
+- Notification dropdown with unread counts and quick navigation based on notification type
+- Dynamic badges and status indicators across leave workflows
+- Clean dashboard layout for faculty and HOD users
+
+## Package Scripts
+
+**Backend** (`backend/package.json`)
+- `start`: `node server.js`
+- `dev`: `nodemon server.js`
+- `seed`: `node seed.js`
+
+**Frontend** (`frontend/package.json`)
+- `dev`: `vite`
+- `build`: `vite build`
+- `preview`: `vite preview`
+- `lint`: `eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0`
+
+## Summary
+
+This project is a complete faculty leave management platform that covers:
+- secure login and role-based access for faculty and HOD users
+- leave application workflows with multi-type validation rules
+- leave balance tracking for casual, medical, summer, winter, permission, and compensation leaves
+- substitute faculty nomination, confirmation, and response workflows
+- HOD approval and rejection with department workload checks
+- notification delivery for leave events and substitute actions
+- separate React dashboards for faculty and HOD users with responsive design
+- seeded demo data for quick testing and department-level workflows
+
+The backend is built to manage leave workflows, substitute coordination, and notifications, while the frontend presents a polished academic portal for faculty and HOD roles.

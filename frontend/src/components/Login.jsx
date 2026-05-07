@@ -139,14 +139,7 @@ const Login = ({ onLogin }) => {
           </button>
         </div>
         
-        <div className="mt-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-xs sm:text-sm">
-          <p className="font-semibold text-gray-800 dark:text-white mb-2">Demo Credentials:</p>
-          <p className="text-gray-600 dark:text-gray-300"><b>CSE HOD:</b> computer.hod@college.edu</p>
-          <p className="text-gray-600 dark:text-gray-300"><b>CSE FAC:</b> profmichaelchen@college.edu</p>
-          <p className="text-gray-600 dark:text-gray-300"><b>Password:</b> password123</p>
-        </div>
-
-        <p className="mt-6 sm:mt-8 text-center text-xs text-gray-600 dark:text-gray-400">
+    <p className="mt-6 sm:mt-8 text-center text-xs text-gray-600 dark:text-gray-400">
           © 2024 College Faculty Portal. All rights reserved.
         </p>
       </div>

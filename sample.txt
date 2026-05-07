@@ -1,0 +1,407 @@
+# MentorSync Project - Comprehensive Analysis
+
+## Project Overview
+
+MentorSync is a full-stack **academic management platform** built with the MERN stack (MongoDB, Express, React, Node.js). It facilitates communication and management between mentors and students by providing a centralized system for tracking leaves, placements, rewards, and course exemptions. The platform uses JWT authentication with role-based access control, Material-UI for modern frontend design, and MongoDB for data persistence.
+
+**Tech Stack:**
+- **Backend:** Express.js 5.2.1, Node.js, MongoDB 9.2.1
+- **Frontend:** React 19.2.0, Vite, Material-UI 7.3.8, Tailwind CSS 4.1.18, React Router 7.13.0
+- **Security:** JWT authentication, bcrypt password hashing, role-based middleware
+- **Additional Libraries:** Axios for API calls, date-fns/dayjs for date handling
+
+## Backend Architecture
+
+### Database Models
+
+1. **User** - Core authentication entity
+   - Fields: name, email, password (hashed), role (admin/mentor/student)
+   - Serves as the foundation for all three user types
+
+2. **Student** - Extended student profile
+   - Personal: userId, phone, batch, department
+   - Academic: marks, CGPA, backlogs, attendance (default 75%)
+   - Rewards: rewardPointsTotal, totalLeaves (default 15)
+   - Courses: enrolledCourses array with status tracking (Enrolled/Pending/Exempted)
+
+3. **MentorStudent** - Relationship mapping
+   - Links mentors to their assigned students
+   - Enables permission-based access control
+
+4. **LeaveRequest** - Leave management
+   - Fields: studentId, fromDate, toDate, reason, leaveType, status (Pending/Approved/Rejected)
+   - Tracks all leave applications and approvals
+
+5. **PlacementRequest** - Placement tracking
+   - Fields: studentId, company, role, package, offerLetterUrl, remarks
+   - Status workflow: Pending Mentor → Mentor Verified → Officially Placed
+   - Rejection capability with reasons
+
+6. **CourseExemption** - Course exemption requests
+   - Fields: studentId, subjectName, reason, certificationLink, creditCount
+   - Status: Pending Mentor → Approved/Rejected
+   - Timestamps for audit trail
+
+7. **RewardPoint** - Recognition system
+   - Fields: studentId, description, points, addedBy (mentor ID), timestamp
+   - Links back to Student for denormalized total tracking
+
+### API Routes
+
+**Auth Routes (`/api/auth`)**
+- `POST /login` - User login with JWT token generation
+
+**Admin Routes (`/api/admin`)** - Restricted to admin role
+- `POST /add-student` - Add new student profile
+- `POST /assign-student` - Create mentor-student mapping
+- `POST /add-reward-points` - Award reward points to students
+- `POST /final-verify-placement` - Mark placement as officially placed
+
+**Mentor Routes (`/api/mentor`)** - Restricted to mentor role
+- **Leave Management:**
+  - `POST /approve-leave` - Approve/reject student leave requests
+  - `GET /leaves` - View all leave requests from assigned students
+  - `GET /students/:studentId/leaves` - Get specific student's leaves
+
+- **Placement Management:**
+  - `GET /placements` - View placement requests from assigned students
+  - `PATCH /placements/:id` - Update placement status (Mentor Verified/Rejected)
+  - `POST /verify-placement` - Legacy verification endpoint
+  - `GET /students/:studentId/placements` - View student's placements
+
+- **Course Exemptions:**
+  - `GET /exemptions` - View exemption requests from assigned students
+  - `PATCH /exemptions/:id` - Approve/reject exemption with optional reason
+
+- **Student Management:**
+  - `GET /mentorstudents` - List all assigned students
+  - `GET /students/:studentId/academics` - View student's academic details (CGPA, attendance, backlogs, courses)
+
+- **Reward Management:**
+  - `GET /students/:studentId/rewards` - View student's reward history
+  - `POST /students/:studentId/rewards` - Award reward points with description
+
+**Student Routes (`/api/student`)** - Restricted to student role
+- **Leave Operations:**
+  - `POST /apply-leave` - Submit new leave request
+  - `GET /my-leaves` - Retrieve own leave history with status
+
+- **Placement Operations:**
+  - `POST /submit-placement` - Submit placement details
+  - `GET /my-placements` - View own placement records
+
+- **Course Exemptions:**
+  - `POST /apply-exemption` - Request course exemption with certification
+  - `GET /my-exemptions` - View exemption requests and status
+
+- **Rewards & Profile:**
+  - `GET /my-rewards` - View accumulated reward points and history
+  - `GET /profile` - Retrieve student profile with attendance and academic data
+
+**Public Routes (`/api`)** - No authentication required
+- `GET /reward-points` - Public reward points data
+- `GET /leave-requests` - Public leave requests data
+- `GET /placement-requests` - Legacy endpoint (returns empty array)
+
+## Frontend Architecture
+
+### User Layouts & Navigation
+
+**Mentor Layout** (`/mentor/*`)
+- Permanent sidebar with navigation
+- Styled with dark gradient (indigo/gray)
+- Navigation items: Dashboard, My Students, Leave Requests, Placement Requests, Reward Points, Course Exemptions
+- User profile display with logout option
+
+**Student Layout** (`/student/*`)
+- Compact sidebar design
+- Dynamic page titles based on current route
+- Top bar with welcome greeting
+- Navigation: Dashboard, Apply Leave, Leave History, Placement Request, My Rewards, Course Exemptions
+
+### Mentor Pages
+
+1. **Dashboard** (`/mentor`)
+   - KPI cards: Number of students, pending leaves, pending placements
+   - Recent activity lists with quick action buttons
+   - Real-time data aggregation from all supervised students
+
+2. **My Students** (`/mentor/students`)
+   - Searchable table of assigned students
+   - Filter by year (batch) and department
+   - Student Details modal showing:
+     - Attendance status
+     - CGPA and academic metrics
+     - Enrolled courses with status
+     - Leave balance and quota
+     - Quick access to student's rewards, leaves, placements, and academics
+
+3. **Leave Requests** (`/mentor/leaves`)
+   - Statistics: Total quota, pending, and approved leaves
+   - Sortable/filterable leave table
+   - Status indicators: Pending/Approved/Rejected
+   - Inline approve/reject actions with dialog
+   - Date range display with detailed view
+
+4. **Placement Requests** (`/mentor/placements`)
+   - Table of placement submissions from students
+   - Detailed placement dialog showing:
+     - Company, job role, package information
+     - Offer letter URL (if provided)
+     - Student remarks and submission date
+   - Two-level approval: Mentor Verified → Admin officially places
+   - Rejection with mandatory reason entry
+
+5. **Reward Points** (`/mentor/rewards`)
+   - Leaderboard-style list of students sorted by total reward points
+   - Reward history for each student with descriptions and dates
+   - Dialog to award new points with description and amount
+   - Real-time total calculation and display
+
+6. **Course Exemptions** (`/mentor/exemptions`)
+   - Table of exemption requests from assigned students
+   - Details view showing:
+     - Subject name and reason
+     - Certification link (if provided)
+     - Credit count
+   - Approve/Reject functionality with rejection reason input
+   - Status indicators and rejection reason display
+
+### Student Pages
+
+1. **Dashboard** (`/student`)
+   - KPI cards: Total reward points, pending leaves, attendance tier status
+   - Recent placements and leave history preview
+   - Attendance tier visualization (Excellent/Good/Low/Critical)
+   - Quick navigation to apply leave, placement, or check status
+
+2. **Apply Leave** (`/student/apply-leave`)
+   - Multi-step form with real-time leave quota calculation
+   - Leave balance display based on attendance:
+     - 75%+ attendance: 15 days allowed
+     - <75% attendance: Proportional reduction
+   - Multiple leave types (OnDuty, Medical, Leave, OutPass, HalfDayOD with subcategories)
+   - Date range picker with validation
+   - Contact and alternate arrangements fields
+   - Real-time form validation with error messages
+
+3. **Leave History** (`/student/leave-history`)
+   - Paginated table of all leave applications
+   - Status badges (Pending/Approved/Rejected)
+   - Leave type and date range display
+   - Filter by status
+
+4. **Placement Request** (`/student/placement`)
+   - Tab interface: Submit new vs. View submissions
+   - Form fields: Company, job role, package, offer letter URL, remarks
+   - Submission history with status indicators
+   - Status workflow display
+
+5. **My Rewards** (`/student/rewards`)
+   - Total reward points summary
+   - Reward history table with descriptions, points, and dates
+   - Sorted by most recent first
+   - Mentor attribution for each reward
+
+6. **Course Exemptions** (`/student/exemptions`)
+   - Two-panel layout: Application form + Request history
+   - Dropdown of enrolled courses
+   - Form fields: Subject, reason, certification link, credit count
+   - Request history table with status and rejection reasons
+   - Course status tracking (Enrolled/Pending/Exempted)
+
+## User Roles & Capabilities
+
+### 1. Admin
+- **Student Management:**
+  - Add new student profiles to the system
+  - Assign students to mentors
+  
+- **Reward Management:**
+  - Award reward points to any student
+  - Track and manage reward system
+  
+- **Placement Verification:**
+  - Final verification of placements (marks as "Officially Placed")
+  - Two-tier approval workflow support
+
+**Access Control:** Role-based middleware restricts all admin routes
+
+### 2. Mentor
+- **Student Oversight:**
+  - View all assigned students and their profiles
+  - Access academic metrics (CGPA, attendance, backlogs, courses)
+  - Track student performance indicators
+  
+- **Leave Management:**
+  - Review all leave requests from assigned students
+  - Approve/reject leaves with status updates
+  - View leave balance and quota calculations
+  - Sorted and filterable leave list
+  
+- **Placement Tracking:**
+  - Review placement submissions with full details
+  - First-level verification (Mentor Verified status)
+  - Reject placements with mandatory reason entry
+  - View company, role, package, and offer letter documents
+  
+- **Course Exemptions:**
+  - Review exemption requests for assigned students
+  - Approve exemptions (marks course as Exempted)
+  - Reject with mandatory reason
+  - Track exemption status workflow
+  
+- **Reward Recognition:**
+  - Award reward points to students with descriptions
+  - Track total points per student
+  - View reward history and leaderboard
+  - Incentivize student achievements
+
+**Access Control:** All mentor routes require `role(["mentor"])` middleware
+
+### 3. Student
+- **Leave Management:**
+  - Submit new leave requests
+  - Select from 13 leave type categories
+  - View leave balance with attendance-based quota
+  - Track leave history with status (Pending/Approved/Rejected)
+  - Provide reason, dates, contact info, and arrangements
+  
+- **Placement Submission:**
+  - Submit placement details (company, role, package)
+  - Track placement status through workflow
+  - Submit offer letter documentation (URL)
+  - Add remarks for clarity
+  - View approval/rejection status and feedback
+  
+- **Course Exemptions:**
+  - Apply for exemption from enrolled courses
+  - Provide reason and certification link
+  - Specify credit count
+  - Track exemption status and mentor feedback
+  - Course status updates (Enrolled → Pending → Exempted/Enrolled)
+  
+- **Reward Tracking:**
+  - View accumulated reward points
+  - See reward history with dates and descriptions
+  - Track achievement recognition from mentors
+  
+- **Profile Access:**
+  - View personal profile data
+  - Access academic metrics (attendance, CGPA, backlogs)
+  - Check enrolled courses and their status
+  - View leave quota calculations
+
+**Access Control:** All student routes require `role(["student"])` middleware
+
+## Key Features & Functionalities
+
+### 1. Leave Management System
+- **13 Leave Types:** OnDuty (Technical/Sports/Internship/Events/Club/NCC-NSS), Medical, Regular Leave, OutPass (Hostel/Others), HalfDayOD (multiple categories)
+- **Attendance-Based Quota:** Default 15 days for ≥75% attendance, scaled down proportionally for lower attendance
+- **Two-Way Workflow:** Student applies → Mentor approves/rejects → Status tracked
+- **Date Range Support:** From/To date validation with minimum detail requirement
+
+### 2. Placement Tracking System
+- **Two-Tier Approval:** Mentor verification first, then admin final placement verification
+- **Documentation Support:** Offer letter URL field for proof
+- **Status Workflow:** Pending Mentor → Mentor Verified → Officially Placed (with rejection capability)
+- **Rejection Management:** Mandatory rejection reasons for audit trail
+- **Student Remarks:** Additional context from student about placement
+
+### 3. Course Exemption System
+- **Certification-Based:** Students provide evidence links
+- **Mentor Approval:** Mentors verify and approve exemptions
+- **Course Status Tracking:** Enrolled courses update status when exempted
+- **Credit Management:** Track credit count for exempted courses
+- **Rejection with Reason:** Mentors can deny with feedback
+
+### 4. Reward & Recognition System
+- **Point-Based:** Flexible point awards by mentors
+- **Description Support:** Each award has a description for context
+- **Leaderboard:** Students ranked by total points
+- **History Tracking:** Complete audit trail with dates and mentor attribution
+- **Real-Time Totals:** Denormalized student reward totals for fast queries
+
+### 5. Student Management
+- **Mentor Assignment:** Admin maps students to mentors via MentorStudent collection
+- **Multi-Filter Search:** Search by name, email, department
+- **Academic Profiling:** Store marks, CGPA, backlogs, attendance
+- **Course Tracking:** Maintain enrolled courses with status
+- **Batch & Department:** Organize students hierarchically
+
+## Security Features
+
+1. **JWT Authentication:** 1-hour token expiration, state-less verification
+2. **Password Security:** bcryptjs hashing with salt rounds
+3. **Role-Based Access Control:** Middleware enforces role restrictions on all protected routes
+4. **Ownership Validation:** Mentors can only update/view their assigned students' records
+5. **Data Validation:** express-validator for request validation
+6. **CORS Protection:** Enabled at application level
+7. **Status Gating:** Prevents invalid state transitions (e.g., re-updating already processed requests)
+
+## Workflow Examples
+
+### Leave Request Workflow
+1. Student fills out leave form with type, dates, reason, contact
+2. System validates against leave quota (attendance-based)
+3. Mentor receives in Leave Requests page
+4. Mentor approves or rejects with optional reason
+5. Student sees updated status in Leave History
+
+### Placement Submission Workflow
+1. Student submits placement with company, role, package, offer letter
+2. Mentor receives in Placement Requests page with full details
+3. Mentor reviews and either approves (Mentor Verified) or rejects
+4. If rejected, feedback provided to student
+5. Admin performs final verification to mark as "Officially Placed"
+6. Student sees final status in Placement tracking
+
+### Course Exemption Workflow
+1. Student selects enrolled course and provides reason + certification link
+2. Course status changes to "Pending"
+3. Mentor reviews exemption request in Exemptions page
+4. Mentor approves (course → Exempted) or rejects (course → Enrolled)
+5. If rejected, reason provided to student
+6. Student sees final exemption status in their records
+
+### Reward Recognition Workflow
+1. Mentor opens Reward Points page and selects student
+2. Mentor fills description and points amount
+3. Points added to RewardPoint collection and Student total updated
+4. Student sees reward in My Rewards with date and description
+5. Leaderboard updates in real-time
+
+## Data Flow Summary
+
+```
+Authentication:
+  Email + Password → JWT Token (1-hour expiry) → User Profile in localStorage
+
+Leave Request:
+  Form → Validation → DB Entry → Mentor Notification → Status Update → Query by filter/status
+
+Placement:
+  Submission → Initial Status (Pending) → Mentor Review → Status Change → Optional Admin Verification
+
+Exemptions:
+  Application → Mentor Review → Status Update → Student Course Array Update
+
+Rewards:
+  Award → RewardPoint Entry + Student Total Increment → Display in History/Leaderboard
+```
+
+## Frontend Component Architecture
+
+- **Layouts:** Persistent sidebars with role-specific navigation
+- **Pages:** One page per main feature (leaves, placements, exemptions, rewards, students)
+- **Dialogs/Modals:** Details view and action confirmation
+- **Tables:** Sortable, searchable, paginated data display
+- **KPI Cards:** Dashboard metrics with icons and status indicators
+- **Forms:** Validation-enabled input with real-time error feedback
+- **Status Indicators:** Color-coded chips for workflow status
+- **Avatar System:** Dynamic color assignment based on user names
+
+## Conclusion
+
+MentorSync is a comprehensive **academic ecosystem management platform** designed to streamline mentor-student interactions across leave management, placement tracking, course exemptions, and achievement recognition. It implements modern full-stack practices with JWT security, role-based access control, real-time data validation, and a polished Material-UI interface. The platform scales to accommodate multiple mentors managing multiple students while maintaining data integrity through careful ownership validation and state management patterns.
